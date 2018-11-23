@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.1" halcon_version="12.0.3">
+<procedure name="main">
+<interface/>
+<body>
+<c></c>
+<l>dev_close_window()</l>
+<l>dev_open_window (0, 0, 512, 512, 'black', WindowHandle)</l>
+<l>dev_update_on()</l>
+<c></c>
+<c>*** Input the image</c>
+<l>ImageFolderPath := 'C:/Users/GothicLolitaSama/Desktop/IC_Substrate_Image/Contam_Scratch_Slit_RenameCropHobj_withRefImage_12NOV18/Slit/True_Circuit_Slit-Defect'</l>
+<c></c>
+<l>* read_image (SlitImage, ImageFolderPath + '/#1_True_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/#1_True_01_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#2_SLIT_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#2_SLIT_01_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<l>read_image (SlitImage, ImageFolderPath + '/0STEP#34_SLIT_02_Index0_Crop.tif')</l>
+<l>read_image (RefImage,  ImageFolderPath + '/0STEP#34_SLIT_02_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#3_SLIT_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#3_SLIT_01_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#4_SLIT_01_Index2_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#4_SLIT_01_Index2_CropImageWoDefect.tif')</l>
+<c></c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#34_SLIT_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#34_SLIT_01_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#34_SLIT_02_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#34_SLIT_02_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<c>* This image has defect at pad which may not be the slit-type defect</c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#51_SLIT_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#51_SLIT_01_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#66_SLIT_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#66_SLIT_01_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<c>* This image sitll have a problem with "not break the trace"</c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#86_SLIT_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#86_SLIT_01_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<l>* read_image (SlitImage, ImageFolderPath + '/#2_Slit_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/#2_Slit_01_Index0_CropImageWoDefect.tif')</l>
+<c>********************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>*** Procedure   : PCB trace extraction for both images</c>
+<c>*** Description : This procedure will output TraceRegion_SlitImage, TraceRegion_RefImage as trace region of defect image and reference image.</c>
+<c></c>
+<c>* Large pads region extraction</c>
+<l>gray_opening_shape (SlitImage, SlitImage_OpeningShape, 13, 13, 'octagon')</l>
+<l>gray_opening_shape (RefImage,  RefImage_OpeningShape,  13, 13, 'octagon')</l>
+<c></c>
+<c>* Remove large pads by reduce domain for only trace + substrate</c>
+<l>threshold(SlitImage_OpeningShape, NoPadRegion_SlitImage, 0, 110)</l>
+<l>threshold(RefImage_OpeningShape,  NoPadRegion_RefImage,  0, 110)</l>
+<l>reduce_domain (SlitImage, NoPadRegion_SlitImage, SlitImage_NoPad)</l>
+<l>reduce_domain (RefImage,  NoPadRegion_RefImage,  RefImage_NoPad)</l>
+<c></c>
+<c>* trace region extraction for each defect and reference image</c>
+<l>emphasize (SlitImage_NoPad, SlitImage_NoPad, 9, 9, 1.0)</l>
+<l>emphasize (RefImage_NoPad,  RefImage_NoPad, 9, 9, 1.0)</l>
+<l>smooth_image (SlitImage_NoPad, SlitImage_NoPad, 'deriche2', 1)</l>
+<l>smooth_image (RefImage_NoPad,  RefImage_NoPad,  'deriche2', 1)</l>
+<l>threshold (SlitImage_NoPad, NoPadRegion_SlitImage, 110, 255)</l>
+<l>threshold (RefImage_NoPad,  NoPadRegion_RefImage, 110, 255)</l>
+<c></c>
+<l>connection (NoPadRegion_SlitImage, ConnectedTraceRegions_SlitImage)</l>
+<l>connection (NoPadRegion_RefImage,  ConnectedTraceRegions_RefImage)</l>
+<l>select_shape (ConnectedTraceRegions_SlitImage, SelectedTraceRegions_SlitImage, 'area', 'and', 50, 99999)</l>
+<l>select_shape (ConnectedTraceRegions_RefImage,  SelectedTraceRegions_RefImage,  'area', 'and', 50, 99999)</l>
+<l>union1 (SelectedTraceRegions_SlitImage, TraceRegion_SlitImage)</l>
+<l>union1 (SelectedTraceRegions_RefImage,  TraceRegion_RefImage)</l>
+<c></c>
+<c>* Display the result : Trace region of defect image</c>
+<l>dev_update_on()</l>
+<l>dev_display(SlitImage)</l>
+<l>dev_set_color('yellow')</l>
+<l>dev_display(TraceRegion_SlitImage)</l>
+<l>dev_update_off()</l>
+<l>stop()</l>
+<c>********************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>*** Procedure : Do a XOR operator between trace region of defect image and reference image to extract the real defect region</c>
+<c></c>
+<c>* There's no XOR set operator. So, try to XOR by using -&gt; (A &amp; !B) || (!A &amp; B)</c>
+<l>copy_obj (TraceRegion_SlitImage,  A, 1, 1)</l>
+<l>copy_obj (TraceRegion_RefImage, B, 1, 1)</l>
+<l>complement (TraceRegion_SlitImage,  A_Complimented)</l>
+<l>complement   (TraceRegion_RefImage, B_Complimented)</l>
+<l>intersection (A, B_Complimented, tmp1)</l>
+<l>intersection (A_Complimented, B, tmp2)</l>
+<l>union2 (tmp1, tmp2, TraceRegion_Xor)</l>
+<c></c>
+<c>* Display the result : XOR image </c>
+<l>dev_update_on()</l>
+<l>dev_display(SlitImage)</l>
+<l>dev_set_color('yellow')</l>
+<l>dev_display(TraceRegion_Xor)</l>
+<l>dev_update_off()</l>
+<l>stop()</l>
+<c>********************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>*** Procedure : Find the straight-line equation of all traces using "Hough" transform</c>
+<l>skeleton(TraceRegion_SlitImage, SkeletonRegion_SlitImage)</l>
+<l>skeleton(TraceRegion_RefImage,  SkeletonRegion_RefImage)</l>
+<l>hough_lines (SkeletonRegion_SlitImage, 4, 45, 5, 5, HAngle_SlitImage, HDist_SlitImage)</l>
+<l>hough_lines (SkeletonRegion_RefImage,  4, 45, 5, 5, HAngle_RefImage,  HDist_RefImage)</l>
+<c></c>
+<c>* Store the output lines described by HNF </c>
+<l>gen_region_hline (LinesHNF_SlitImage, HAngle_SlitImage, HDist_SlitImage)</l>
+<l>gen_region_hline (LinesHNF_RefImage,  HAngle_RefImage,  HDist_RefImage)</l>
+<l>count_obj (LinesHNF_RefImage, NumberOfLineHNF)</l>
+<c></c>
+<c>* Display the result : hough line</c>
+<l>dev_update_on()</l>
+<l>dev_display(RefImage)</l>
+<l>dev_set_colored(12)</l>
+<l>dev_display(LinesHNF_RefImage)</l>
+<l>dev_update_off()</l>
+<l>stop()</l>
+<c>********************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>*** Procedure : Extract all the end-point(s) from both defect image and reference image</c>
+<c></c>
+<c>* Erosion to trace region a little bit to obtain a good skeleton image (no branch at the end-point) </c>
+<l>erosion_rectangle1 (TraceRegion_SlitImage, ErosedTraceRegion_SlitImage, 2, 2)</l>
+<l>erosion_rectangle1 (TraceRegion_RefImage,  ErosedTraceRegion_RefImage,  2, 2)</l>
+<l>skeleton(ErosedTraceRegion_SlitImage, ErosedSkeletonRegion_SlitImage)</l>
+<l>skeleton(ErosedTraceRegion_RefImage,  ErosedSkeletonRegion_RefImage)</l>
+<c></c>
+<c>* Find all the end-points from skeleton image</c>
+<l>junctions_skeleton (ErosedSkeletonRegion_SlitImage, EndPoints_SlitImage, JuncPoints_SlitImage)</l>
+<l>junctions_skeleton (ErosedSkeletonRegion_RefImage,  EndPoints_RefImage,  JuncPoints_RefImage)</l>
+<l>connection(EndPoints_SlitImage, EndPoints_SlitImage)</l>
+<l>connection(EndPoints_RefImage,  EndPoints_RefImage)</l>
+<c></c>
+<l>get_image_size (SlitImage, Width, Height)</l>
+<l>CropFrameWidth := 15</l>
+<l>gen_rectangle1 (CropRectangle, CropFrameWidth, CropFrameWidth, Height - CropFrameWidth, Width - CropFrameWidth)</l>
+<l>reduce_domain  (SlitImage_NoPad, CropRectangle, CropSlitImage_NoPad)</l>
+<l>reduce_domain  (RefImage_NoPad,  CropRectangle, CropRefImage_NoPad)</l>
+<l>get_domain     (CropSlitImage_NoPad, Domain_SlitImage)</l>
+<l>get_domain     (CropRefImage_NoPad,  Domain_RefImage)</l>
+<l>erosion_circle (Domain_SlitImage, Domain_SlitImage, 5)</l>
+<l>erosion_circle (Domain_RefImage,  Domain_RefImage, 5)</l>
+<l>union1 (EndPoints_SlitImage, UnionEndPoints_SlitImage)</l>
+<l>union1 (EndPoints_RefImage,  UnionEndPoints_RefImage)</l>
+<l>intersection (UnionEndPoints_SlitImage, Domain_SlitImage, IntersectedEndPoints_SlitImage)</l>
+<l>intersection (UnionEndPoints_RefImage,  Domain_RefImage,  IntersectedEndPoints_RefImage)</l>
+<l>connection (IntersectedEndPoints_SlitImage, IntersectedEndPoints_SlitImage)</l>
+<l>connection (IntersectedEndPoints_RefImage,  IntersectedEndPoints_RefImage)</l>
+<l>count_obj (IntersectedEndPoints_SlitImage, N_SlitImage)</l>
+<l>count_obj (IntersectedEndPoints_RefImage,  N_RefImage)</l>
+<c>* check if object is empty or not? (count_obj() will return 1 even if object is empty)</c>
+<l>area_center (IntersectedEndPoints_SlitImage, Area1, r, c)</l>
+<l>area_center (IntersectedEndPoints_RefImage,  Area2, r, c)</l>
+<l>if (Area1 == 0)</l>
+<l>    N_SlitImage := 0</l>
+<l>endif</l>
+<l>if (Area2 == 0)</l>
+<l>    N_RefImage := 0</l>
+<l>endif</l>
+<c></c>
+<c>* Erosion again if defect do not break the PCB line completely (no end-points are detected)</c>
+<l>if (N_SlitImage - N_RefImage &gt;= 2 and N_SlitImage - N_RefImage &lt; 2)</l>
+<c>    </c>
+<c>    * if the number of end-point inside both defect image &amp; reference image are the same. Then, erosion is needed.</c>
+<l>    erosion_rectangle1 (ErosedTraceRegion_SlitImage, ErosedTraceRegion_SlitImage, 2, 2)</l>
+<l>    erosion_rectangle1 (ErosedTraceRegion_RefImage,  ErosedTraceRegion_RefImage,  2, 2)</l>
+<c>    * Re-compute the skeleton image and the new end-point set.</c>
+<l>    skeleton(ErosedTraceRegion_SlitImage, ErosedSkeletonRegion_SlitImage)</l>
+<l>    skeleton(ErosedTraceRegion_RefImage,  ErosedSkeletonRegion_RefImage)</l>
+<l>    junctions_skeleton (ErosedSkeletonRegion_SlitImage, EndPoints_SlitImage, JuncPoints_SlitImage)</l>
+<l>    junctions_skeleton (ErosedSkeletonRegion_RefImage,  EndPoints_SlitImage, JuncPoints_SlitImage)</l>
+<c></c>
+<l>endif</l>
+<c></c>
+<c>* Extract row and column of all end-points</c>
+<l>count_obj  (EndPoints_SlitImage, NumberOfEndPoint)</l>
+<l>area_center(EndPoints_SlitImage, area, row_endpoint, column_endpoint)</l>
+<c></c>
+<c>* Display the result : Skeleton image and its end-point(s)</c>
+<l>dev_update_on()</l>
+<l>dev_display(SlitImage)</l>
+<l>dev_set_color('pink')</l>
+<l>dev_display(ErosedSkeletonRegion_SlitImage)</l>
+<l>dev_set_colored(12)</l>
+<l>dev_display(EndPoints_SlitImage)</l>
+<l>disp_cross (WindowHandle, row_endpoint, column_endpoint, 6, 0.785398)</l>
+<l>dev_update_off()</l>
+<l>stop()</l>
+<c>********************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>*** Procedure :   Find the best end-point(s) of PCB trace to construct a search area for searching the defect region</c>
+<c>*** Description : This procedure will return the search region which the "real" defect(s) are contained. The region will be used later to extract the actual</c>
+<c></c>
+<c>* Calculate the distance between a hough line of circuit trace and candidated defect region (by using end-points as the candidated region)</c>
+<l>dev_clear_window()</l>
+<l>dev_update_off()</l>
+<l>gen_empty_region (CandidatedSearchRegion)</l>
+<l>gen_empty_region (CandidatedSearchRegion_AfterCircle)</l>
+<l>gen_empty_region (CandidatedSearchRegion_AfterEllipse)</l>
+<l>Pi := 3.14159265359</l>
+<l>Angle := []</l>
+<c></c>
+<l>for i := 0 to NumberOfEndPoint - 2 by 1</l>
+<l>    for j := i + 1 to NumberOfEndPoint - 1 by 1</l>
+<c>        </c>
+<l>        row_point1 := row_endpoint[i]</l>
+<l>        column_point1 := column_endpoint[i]</l>
+<l>        row_point2 := row_endpoint[j]</l>
+<l>        column_point2 := column_endpoint[j]</l>
+<l>        gen_region_line (CandidateDefectLine, row_endpoint[i], column_endpoint[i], row_endpoint[j], column_endpoint[j])</l>
+<c>        </c>
+<l>        for k := 0 to NumberOfLineHNF-1 by 1</l>
+<c></c>
+<l>            select_obj (LinesHNF_RefImage, SelectedTraceLine, k+1)</l>
+<c>            </c>
+<c>            * Calculate the distance error btw hough line and candidated end-points</c>
+<l>            distance_pr (SelectedTraceLine, row_point1, column_point1, DistanceMin_Point1, DistanceMax_Point1)</l>
+<l>            distance_pr (SelectedTraceLine, row_point2, column_point2, DistanceMin_Point2, DistanceMax_Point2)</l>
+<l>            DistanceError := DistanceMin_Point1 + DistanceMin_Point2</l>
+<c>            </c>
+<c>            * Calculate the lenght of candidated defect region</c>
+<l>            distance_pp (row_point1, column_point1, row_point2, column_point2, Length)</l>
+<c>            </c>
+<c>            * Calculate the angle btw hough line and candidated defect region</c>
+<l>            x_hline_1 := 0</l>
+<l>            y_hline_1 := (HDist_RefImage[k] - x_hline_1*cos(HAngle_RefImage[k]))/sin(HAngle_RefImage[k])</l>
+<l>            x_hline_2 := 512</l>
+<l>            y_hline_2 := (HDist_RefImage[k] - x_hline_2*cos(HAngle_RefImage[k]))/sin(HAngle_RefImage[k])  </l>
+<l>            angle_ll (y_hline_1, x_hline_1, y_hline_2, x_hline_2, row_endpoint[i], column_endpoint[i], row_endpoint[j], column_endpoint[j], Angle)</l>
+<l>            tuple_abs (Angle, Angle)</l>
+<l>            if (Angle &gt; Pi/2)</l>
+<l>                Angle := Pi - Angle </l>
+<l>            endif</l>
+<c>            </c>
+<c>            * Display how a searching works in this procedure. Deactivate this section to increase the speed.</c>
+<l>*             dev_update_on()</l>
+<l>*             dev_display(SlitImage)</l>
+<l>*             dev_set_color('yellow')</l>
+<l>*             dev_display(SelectedTraceLine)</l>
+<l>*             dev_set_color('green')</l>
+<l>*             dev_display(CandidateDefectLine)</l>
+<l>*             dev_update_off()</l>
+<c>            </c>
+<c>            * Decision routine to choose which one is the defect region by using "Angle", "DistanceError" and "Lenght" </c>
+<l>            Threshold_DistanceError := 15</l>
+<l>            Threshold_Length := 22</l>
+<l>            Threshold_Angle  := 0.41</l>
+<l>            if ((DistanceError &lt;= Threshold_DistanceError) and (Length &lt;= Threshold_Length) and (Angle &lt;= Threshold_Angle))</l>
+<c>                </c>
+<c>                * Generate an ellipse region around the chosen region </c>
+<l>                area_center (CandidateDefectLine, Area, Row, Column)</l>
+<l>                elliptic_axis (CandidateDefectLine, Ra, Rb, Phi)</l>
+<l>                gen_ellipse (Ellipse, Row, Column, Phi, 3*Ra, 21*Rb)</l>
+<l>                gen_circle  (Circle,  Row, Column, 1.0*Length)</l>
+<c>                </c>
+<l>                area_center (Circle, Area_Circle, tmp_r, tmp_c)</l>
+<l>                if (Area_Circle &lt; 50)</l>
+<l>                    gen_circle  (Circle,  Row, Column, 3.0*Length)</l>
+<l>                    gen_ellipse (Ellipse, Row, Column, Phi, 4*Ra, 32*Rb)</l>
+<l>                endif</l>
+<c>                </c>
+<l>                union2 (CandidatedSearchRegion, CandidateDefectLine, CandidatedSearchRegion)</l>
+<l>                union2 (CandidatedSearchRegion_AfterEllipse, Ellipse, CandidatedSearchRegion_AfterEllipse)</l>
+<l>                union2 (CandidatedSearchRegion_AfterCircle,  Circle,  CandidatedSearchRegion_AfterCircle) </l>
+<l>            endif</l>
+<c>            </c>
+<l>        endfor</l>
+<l>    endfor</l>
+<l>endfor</l>
+<c></c>
+<c>* Display the result : Search region for defect (Ellipse-type, Circle-Type), XOR image which defect region is lying on XOR image</c>
+<l>dev_update_on()</l>
+<l>dev_display(SlitImage)</l>
+<l>dev_set_draw('margin')</l>
+<l>dev_set_color('yellow')</l>
+<l>dev_display(CandidatedSearchRegion_AfterEllipse)</l>
+<l>dev_set_color('red')</l>
+<l>dev_display(CandidatedSearchRegion_AfterCircle)</l>
+<l>dev_set_draw('fill')</l>
+<l>dev_set_color('green')</l>
+<l>dev_display(TraceRegion_Xor)</l>
+<l>dev_update_off()</l>
+<c></c>
+<l>stop()</l>
+<c>********************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c>*** Procedure :   Extract the defect region using the resulted search region</c>
+<c></c>
+<c>* intersect between search region and XOR image</c>
+<l>gen_empty_obj (SearchRegion)</l>
+<l>union2 (CandidatedSearchRegion_AfterCircle, CandidatedSearchRegion_AfterEllipse, SearchRegion)</l>
+<l>intersection (TraceRegion_Xor, SearchRegion, DefectRegion)</l>
+<c></c>
+<l>dev_set_colored(12)</l>
+<c></c>
+<c>* 1st filtering using "area"</c>
+<l>connection (DefectRegion, ConnectedRegions)</l>
+<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 15, 10000)</l>
+<c></c>
+<c>* Erosion if some part of defect(s) are still very large</c>
+<l>gen_empty_region (FilteredDefectRegion)</l>
+<l>count_obj(SelectedRegions, n)</l>
+<l>for i := 1 to n by 1   </l>
+<l>    select_obj  (SelectedRegions, SelectObj, i)  </l>
+<l>    area_center (SelectObj, area, r, c)</l>
+<l>    if (area &gt; 100)</l>
+<l>        erosion_rectangle1 (SelectObj, SelectObj, 2, 2)</l>
+<l>    endif</l>
+<l>    union2(FilteredDefectRegion, SelectObj, FilteredDefectRegion)</l>
+<l>endfor</l>
+<c></c>
+<c>* 2nd filtering using "area"</c>
+<l>connection   (FilteredDefectRegion, ConnectedRegions)</l>
+<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 15, 10000)</l>
+<l>union1(SelectedRegions, FilteredDefectRegion)</l>
+<c></c>
+<c>* Display the result : Search region for defect (Ellipse-type, Circle-Type), XOR image which defect region is lying on XOR image</c>
+<l>dev_update_on()</l>
+<l>dev_display(SlitImage)</l>
+<l>dev_set_draw('margin')</l>
+<l>dev_set_color('yellow')</l>
+<l>dev_display(DefectRegion)</l>
+<l>dev_set_color('blue')</l>
+<l>dev_display(FilteredDefectRegion)</l>
+<l>dev_update_off()</l>
+<l>*stop()</l>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+</hdevelop>

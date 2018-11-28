@@ -11,40 +11,51 @@
 <c>*** Input the image</c>
 <l>ImageFolderPath := 'C:/Users/GothicLolitaSama/Desktop/IC_Substrate_Image/Contam_Scratch_Slit_RenameCropHobj_withRefImage_12NOV18/Slit/True_Circuit_Slit-Defect'</l>
 <c></c>
+<c>* Passed</c>
 <l>* read_image (SlitImage, ImageFolderPath + '/#1_True_01_Index0_Crop.tif')</l>
 <l>* read_image (RefImage,  ImageFolderPath + '/#1_True_01_Index0_CropImageWoDefect.tif')</l>
 <c></c>
+<c>* Passed</c>
 <l>* read_image (SlitImage, ImageFolderPath + '/0STEP#2_SLIT_01_Index0_Crop.tif')</l>
 <l>* read_image (RefImage,  ImageFolderPath + '/0STEP#2_SLIT_01_Index0_CropImageWoDefect.tif')</l>
 <c></c>
-<l>read_image (SlitImage, ImageFolderPath + '/0STEP#34_SLIT_02_Index0_Crop.tif')</l>
-<l>read_image (RefImage,  ImageFolderPath + '/0STEP#34_SLIT_02_Index0_CropImageWoDefect.tif')</l>
-<c></c>
-<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#3_SLIT_01_Index0_Crop.tif')</l>
-<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#3_SLIT_01_Index0_CropImageWoDefect.tif')</l>
-<c></c>
-<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#4_SLIT_01_Index2_Crop.tif')</l>
-<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#4_SLIT_01_Index2_CropImageWoDefect.tif')</l>
-<c></c>
-<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#34_SLIT_01_Index0_Crop.tif')</l>
-<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#34_SLIT_01_Index0_CropImageWoDefect.tif')</l>
-<c></c>
+<c>* Passed</c>
 <l>* read_image (SlitImage, ImageFolderPath + '/0STEP#34_SLIT_02_Index0_Crop.tif')</l>
 <l>* read_image (RefImage,  ImageFolderPath + '/0STEP#34_SLIT_02_Index0_CropImageWoDefect.tif')</l>
 <c></c>
+<c>* Passed</c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#3_SLIT_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#3_SLIT_01_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<c>* Passed</c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#4_SLIT_01_Index2_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#4_SLIT_01_Index2_CropImageWoDefect.tif')</l>
+<c></c>
+<c>* Passed</c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#34_SLIT_01_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#34_SLIT_01_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<c>* Passed</c>
+<l>* read_image (SlitImage, ImageFolderPath + '/0STEP#34_SLIT_02_Index0_Crop.tif')</l>
+<l>* read_image (RefImage,  ImageFolderPath + '/0STEP#34_SLIT_02_Index0_CropImageWoDefect.tif')</l>
+<c></c>
+<c>* Not Pass</c>
 <c>* This image has defect at pad which may not be the slit-type defect</c>
 <l>* read_image (SlitImage, ImageFolderPath + '/0STEP#51_SLIT_01_Index0_Crop.tif')</l>
 <l>* read_image (RefImage,  ImageFolderPath + '/0STEP#51_SLIT_01_Index0_CropImageWoDefect.tif')</l>
 <c></c>
+<c>* Passed</c>
 <l>* read_image (SlitImage, ImageFolderPath + '/0STEP#66_SLIT_01_Index0_Crop.tif')</l>
 <l>* read_image (RefImage,  ImageFolderPath + '/0STEP#66_SLIT_01_Index0_CropImageWoDefect.tif')</l>
 <c></c>
-<c>* This image sitll have a problem with "not break the trace"</c>
+<c>* Passed</c>
+<c>* Note : This image sitll have a problem with "not break the trace"</c>
 <l>* read_image (SlitImage, ImageFolderPath + '/0STEP#86_SLIT_01_Index0_Crop.tif')</l>
 <l>* read_image (RefImage,  ImageFolderPath + '/0STEP#86_SLIT_01_Index0_CropImageWoDefect.tif')</l>
 <c></c>
-<l>* read_image (SlitImage, ImageFolderPath + '/#2_Slit_01_Index0_Crop.tif')</l>
-<l>* read_image (RefImage,  ImageFolderPath + '/#2_Slit_01_Index0_CropImageWoDefect.tif')</l>
+<c>* Passed</c>
+<l>read_image (SlitImage, ImageFolderPath + '/#2_Slit_01_Index0_Crop.tif')</l>
+<l>read_image (RefImage,  ImageFolderPath + '/#2_Slit_01_Index0_CropImageWoDefect.tif')</l>
 <c>********************************************************************************</c>
 <c></c>
 <c></c>
@@ -53,12 +64,12 @@
 <c>*** Description : This procedure will output TraceRegion_SlitImage, TraceRegion_RefImage as trace region of defect image and reference image.</c>
 <c></c>
 <c>* Large pads region extraction</c>
-<l>gray_opening_shape (SlitImage, SlitImage_OpeningShape, 13, 13, 'octagon')</l>
-<l>gray_opening_shape (RefImage,  RefImage_OpeningShape,  13, 13, 'octagon')</l>
+<l>gray_opening_shape (SlitImage, SlitImage_OpeningShape, 15, 15, 'octagon')</l>
+<l>gray_opening_shape (RefImage,  RefImage_OpeningShape,  15, 15, 'octagon')</l>
 <c></c>
 <c>* Remove large pads by reduce domain for only trace + substrate</c>
-<l>threshold(SlitImage_OpeningShape, NoPadRegion_SlitImage, 0, 110)</l>
-<l>threshold(RefImage_OpeningShape,  NoPadRegion_RefImage,  0, 110)</l>
+<l>threshold(SlitImage_OpeningShape, NoPadRegion_SlitImage, 0, 95)</l>
+<l>threshold(RefImage_OpeningShape,  NoPadRegion_RefImage,  0, 95)</l>
 <l>reduce_domain (SlitImage, NoPadRegion_SlitImage, SlitImage_NoPad)</l>
 <l>reduce_domain (RefImage,  NoPadRegion_RefImage,  RefImage_NoPad)</l>
 <c></c>
@@ -67,8 +78,8 @@
 <l>emphasize (RefImage_NoPad,  RefImage_NoPad, 9, 9, 1.0)</l>
 <l>smooth_image (SlitImage_NoPad, SlitImage_NoPad, 'deriche2', 1)</l>
 <l>smooth_image (RefImage_NoPad,  RefImage_NoPad,  'deriche2', 1)</l>
-<l>threshold (SlitImage_NoPad, NoPadRegion_SlitImage, 110, 255)</l>
-<l>threshold (RefImage_NoPad,  NoPadRegion_RefImage, 110, 255)</l>
+<l>threshold (SlitImage_NoPad, NoPadRegion_SlitImage, 100, 255)</l>
+<l>threshold (RefImage_NoPad,  NoPadRegion_RefImage, 100, 255)</l>
 <c></c>
 <l>connection (NoPadRegion_SlitImage, ConnectedTraceRegions_SlitImage)</l>
 <l>connection (NoPadRegion_RefImage,  ConnectedTraceRegions_RefImage)</l>
@@ -83,29 +94,31 @@
 <l>dev_set_color('yellow')</l>
 <l>dev_display(TraceRegion_SlitImage)</l>
 <l>dev_update_off()</l>
-<l>stop()</l>
+<l>*stop()</l>
 <c>********************************************************************************</c>
 <c></c>
 <c></c>
 <c></c>
 <c>*** Procedure : Do a XOR operator between trace region of defect image and reference image to extract the real defect region</c>
 <c></c>
+<l>threshold(SlitImage, ThresholdRegion_SlitImage, 100, 255)</l>
+<l>threshold(RefImage,  ThresholdRegion_RefImage,  100, 255)</l>
 <c>* There's no XOR set operator. So, try to XOR by using -&gt; (A &amp; !B) || (!A &amp; B)</c>
-<l>copy_obj (TraceRegion_SlitImage,  A, 1, 1)</l>
-<l>copy_obj (TraceRegion_RefImage, B, 1, 1)</l>
-<l>complement (TraceRegion_SlitImage,  A_Complimented)</l>
-<l>complement   (TraceRegion_RefImage, B_Complimented)</l>
+<l>copy_obj (ThresholdRegion_SlitImage,  A, 1, 1)</l>
+<l>copy_obj (ThresholdRegion_RefImage, B, 1, 1)</l>
+<l>complement (ThresholdRegion_SlitImage,  A_Complimented)</l>
+<l>complement   (ThresholdRegion_RefImage, B_Complimented)</l>
 <l>intersection (A, B_Complimented, tmp1)</l>
 <l>intersection (A_Complimented, B, tmp2)</l>
-<l>union2 (tmp1, tmp2, TraceRegion_Xor)</l>
+<l>union2 (tmp1, tmp2, Region_Xor)</l>
 <c></c>
 <c>* Display the result : XOR image </c>
 <l>dev_update_on()</l>
 <l>dev_display(SlitImage)</l>
 <l>dev_set_color('yellow')</l>
-<l>dev_display(TraceRegion_Xor)</l>
+<l>dev_display(Region_Xor)</l>
 <l>dev_update_off()</l>
-<l>stop()</l>
+<l>*stop()</l>
 <c>********************************************************************************</c>
 <c></c>
 <c></c>
@@ -127,7 +140,7 @@
 <l>dev_set_colored(12)</l>
 <l>dev_display(LinesHNF_RefImage)</l>
 <l>dev_update_off()</l>
-<l>stop()</l>
+<l>*stop()</l>
 <c>********************************************************************************</c>
 <c></c>
 <c></c>
@@ -164,12 +177,12 @@
 <l>count_obj (IntersectedEndPoints_SlitImage, N_SlitImage)</l>
 <l>count_obj (IntersectedEndPoints_RefImage,  N_RefImage)</l>
 <c>* check if object is empty or not? (count_obj() will return 1 even if object is empty)</c>
-<l>area_center (IntersectedEndPoints_SlitImage, Area1, r, c)</l>
-<l>area_center (IntersectedEndPoints_RefImage,  Area2, r, c)</l>
-<l>if (Area1 == 0)</l>
+<l>area_center (IntersectedEndPoints_SlitImage, EndPointArea_SlitImage, r, c)</l>
+<l>area_center (IntersectedEndPoints_RefImage,  EndPointArea_RefImage, r, c)</l>
+<l>if (EndPointArea_SlitImage == 0)</l>
 <l>    N_SlitImage := 0</l>
 <l>endif</l>
-<l>if (Area2 == 0)</l>
+<l>if (EndPointArea_RefImage == 0)</l>
 <l>    N_RefImage := 0</l>
 <l>endif</l>
 <c></c>
@@ -261,19 +274,23 @@
 <c>            * Decision routine to choose which one is the defect region by using "Angle", "DistanceError" and "Lenght" </c>
 <l>            Threshold_DistanceError := 15</l>
 <l>            Threshold_Length := 22</l>
-<l>            Threshold_Angle  := 0.41</l>
+<l>            Threshold_Angle  := 0.42</l>
 <l>            if ((DistanceError &lt;= Threshold_DistanceError) and (Length &lt;= Threshold_Length) and (Angle &lt;= Threshold_Angle))</l>
 <c>                </c>
 <c>                * Generate an ellipse region around the chosen region </c>
 <l>                area_center (CandidateDefectLine, Area, Row, Column)</l>
 <l>                elliptic_axis (CandidateDefectLine, Ra, Rb, Phi)</l>
-<l>                gen_ellipse (Ellipse, Row, Column, Phi, 3*Ra, 21*Rb)</l>
-<l>                gen_circle  (Circle,  Row, Column, 1.0*Length)</l>
+<l>                gen_ellipse (Ellipse, Row, Column, Phi, 1.6*Ra, 16*Rb)</l>
+<l>                gen_circle  (Circle,  Row, Column, 0.8*Length)</l>
 <c>                </c>
 <l>                area_center (Circle, Area_Circle, tmp_r, tmp_c)</l>
-<l>                if (Area_Circle &lt; 50)</l>
-<l>                    gen_circle  (Circle,  Row, Column, 3.0*Length)</l>
-<l>                    gen_ellipse (Ellipse, Row, Column, Phi, 4*Ra, 32*Rb)</l>
+<l>                if (Area_Circle &lt; 30)</l>
+<l>                    gen_circle  (Circle,  Row, Column, 3*Length)</l>
+<l>                    gen_ellipse (Ellipse, Row, Column, Phi, 4*Ra, 24*Rb)</l>
+<c>                    </c>
+<l>                elseif (Area_Circle &lt; 100)</l>
+<l>                    gen_circle  (Circle,  Row, Column, 1.2*Length)</l>
+<l>                    gen_ellipse (Ellipse, Row, Column, Phi, 2*Ra, 20*Rb)</l>
 <l>                endif</l>
 <c>                </c>
 <l>                union2 (CandidatedSearchRegion, CandidateDefectLine, CandidatedSearchRegion)</l>
@@ -295,7 +312,7 @@
 <l>dev_display(CandidatedSearchRegion_AfterCircle)</l>
 <l>dev_set_draw('fill')</l>
 <l>dev_set_color('green')</l>
-<l>dev_display(TraceRegion_Xor)</l>
+<l>dev_display(Region_Xor)</l>
 <l>dev_update_off()</l>
 <c></c>
 <l>stop()</l>
@@ -309,41 +326,86 @@
 <c>* intersect between search region and XOR image</c>
 <l>gen_empty_obj (SearchRegion)</l>
 <l>union2 (CandidatedSearchRegion_AfterCircle, CandidatedSearchRegion_AfterEllipse, SearchRegion)</l>
-<l>intersection (TraceRegion_Xor, SearchRegion, DefectRegion)</l>
+<l>intersection (Region_Xor, SearchRegion, DefectRegion_Slit)</l>
 <c></c>
 <l>dev_set_colored(12)</l>
 <c></c>
 <c>* 1st filtering using "area"</c>
-<l>connection (DefectRegion, ConnectedRegions)</l>
-<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 15, 10000)</l>
+<l>connection (DefectRegion_Slit, ConnectedRegions)</l>
+<l>area_center (ConnectedRegions, listArea, r, c)</l>
+<l>tuple_max (listArea, MaxDefectArea)</l>
+<l>MinDefectArea := 0.2*MaxDefectArea</l>
+<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', MinDefectArea, 10000)</l>
 <c></c>
 <c>* Erosion if some part of defect(s) are still very large</c>
-<l>gen_empty_region (FilteredDefectRegion)</l>
+<l>gen_empty_region (FilteredDefectRegion_Slit)</l>
 <l>count_obj(SelectedRegions, n)</l>
 <l>for i := 1 to n by 1   </l>
 <l>    select_obj  (SelectedRegions, SelectObj, i)  </l>
 <l>    area_center (SelectObj, area, r, c)</l>
-<l>    if (area &gt; 100)</l>
+<l>    if (area &gt; 200)</l>
 <l>        erosion_rectangle1 (SelectObj, SelectObj, 2, 2)</l>
 <l>    endif</l>
-<l>    union2(FilteredDefectRegion, SelectObj, FilteredDefectRegion)</l>
+<l>    union2(FilteredDefectRegion_Slit, SelectObj, FilteredDefectRegion_Slit)</l>
 <l>endfor</l>
 <c></c>
 <c>* 2nd filtering using "area"</c>
-<l>connection   (FilteredDefectRegion, ConnectedRegions)</l>
-<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 15, 10000)</l>
-<l>union1(SelectedRegions, FilteredDefectRegion)</l>
+<l>connection   (FilteredDefectRegion_Slit, ConnectedRegions)</l>
+<l>area_center (ConnectedRegions, listArea, r, c)</l>
+<l>tuple_max (listArea, MaxDefectArea)</l>
+<l>MinDefectArea := 0.5*MaxDefectArea</l>
+<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', MinDefectArea, 10000)</l>
+<l>union1(SelectedRegions, FilteredDefectRegion_Slit)</l>
 <c></c>
 <c>* Display the result : Search region for defect (Ellipse-type, Circle-Type), XOR image which defect region is lying on XOR image</c>
 <l>dev_update_on()</l>
 <l>dev_display(SlitImage)</l>
 <l>dev_set_draw('margin')</l>
 <l>dev_set_color('yellow')</l>
-<l>dev_display(DefectRegion)</l>
+<l>dev_display(DefectRegion_Slit)</l>
 <l>dev_set_color('blue')</l>
-<l>dev_display(FilteredDefectRegion)</l>
+<l>dev_display(FilteredDefectRegion_Slit)</l>
 <l>dev_update_off()</l>
-<l>*stop()</l>
+<l>stop()</l>
+<c>********************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<l>dev_set_draw('fill')</l>
+<l>dev_set_colored(12)</l>
+<l>sobel_amp (SlitImage_OpeningShape, EdgeAmplitude_SlitImage, 'sum_abs', 5)</l>
+<l>sobel_amp (RefImage_OpeningShape,  EdgeAmplitude_RefImage,  'sum_abs', 5)</l>
+<l>emphasize (EdgeAmplitude_SlitImage, EdgeAmplitude_SlitImage, 9, 9, 1.0)</l>
+<l>emphasize (EdgeAmplitude_RefImage,  EdgeAmplitude_RefImage, 9, 9, 1.0)</l>
+<l>threshold (EdgeAmplitude_SlitImage, Edges_SlitImage, 20, 255)</l>
+<l>threshold (EdgeAmplitude_RefImage,  Edges_RefImage, 20, 255)</l>
+<l>close_edges (Edges_SlitImage, EdgeAmplitude_SlitImage, EdgesExtended_SlitImage, 10)</l>
+<l>close_edges (Edges_RefImage,  EdgeAmplitude_RefImage,  EdgesExtended_RefImage, 10)</l>
+<l>connection (EdgesExtended_SlitImage, ConnectedPadRegions_SlitImage)</l>
+<l>connection (EdgesExtended_RefImage,  ConnectedPadRegions_RefImage)</l>
+<l>count_obj  (ConnectedPadRegions_SlitImage, PadNumber_SlitImage)</l>
+<l>count_obj  (ConnectedPadRegions_RefImage,  PadNumber_RefImage)</l>
+<l>gen_rectangle1 (Rectangle, 1, 1, Height-1, Width-1)</l>
+<l>complement (Rectangle, ImageFrameRegion)</l>
+<c></c>
+<l>gen_empty_region(PadRegions_SlitImage)</l>
+<l>for i := 1 to PadNumber_SlitImage by 1</l>
+<l>    select_obj  (ConnectedPadRegions_SlitImage, SelectObj, i)  </l>
+<l>    union2 (SelectObj, ImageFrameRegion, RegionUnion)</l>
+<l>    fill_up_shape (RegionUnion, RegionFillUp, 'area', 1, 5000)   </l>
+<l>    difference (RegionFillUp, ImageFrameRegion, PadRegion)</l>
+<l>    union2(PadRegions_SlitImage, PadRegion, PadRegions_SlitImage)</l>
+<l>endfor</l>
+<c></c>
+<l>gen_empty_region(PadRegions_RefImage)</l>
+<l>for i := 1 to PadNumber_RefImage by 1</l>
+<l>    select_obj  (ConnectedPadRegions_RefImage, SelectObj, i)  </l>
+<l>    union2 (SelectObj, ImageFrameRegion, RegionUnion)</l>
+<l>    fill_up_shape (RegionUnion, RegionFillUp, 'area', 1, 5000)   </l>
+<l>    difference (RegionFillUp, ImageFrameRegion, PadRegion)</l>
+<l>    union2(PadRegions_RefImage, PadRegion, PadRegions_RefImage)</l>
+<l>endfor</l>
+<c></c>
 </body>
 <docu id="main">
 <parameters/>

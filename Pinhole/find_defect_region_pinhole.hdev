@@ -9,7 +9,7 @@
 <l>dev_update_on()</l>
 <c></c>
 <c>*** Input the image</c>
-<l>ImageFolderPath := 'C:/Users/GothicLolitaSama/Desktop/IC_Substrate_Image/Pinhole/TrueDefects_12SEP18/True/Reverse Metal'</l>
+<l>ImageFolderPath := 'E:/My_Workspaces/Engineering_Workspace/IC_Substrate_Image/Pinhole/TrueDefects_12SEP18/True/Reverse Metal'</l>
 <c></c>
 <l>InputImagePath[0] := ImageFolderPath + '/0STEP#1/Crop image and crop hobj'   + '/#1_PINHOLE_01_Index0_Crop.tif'</l>
 <l>RefImagePath[0]   := ImageFolderPath + '/0STEP#1/Background Image wo defect' + '/#1_PINHOLE_01_Index0_CropImageWoDefect.tif'</l>
@@ -47,15 +47,16 @@
 <l>InputImagePath[11] := ImageFolderPath + '/0STEP#37/Crop image and crop hobj'   + '/#37_PINHOLE_01_Index0_Crop.tif'</l>
 <l>RefImagePath[11]   := ImageFolderPath + '/0STEP#37/Background Image wo defect' + '/#37_PINHOLE_01_Index0_CropImageWoDefect.tif'</l>
 <c></c>
-<l>SelectedImageIndex := 11</l>
-<l>read_image (InputImage, InputImagePath[SelectedImageIndex])</l>
-<l>read_image (RefImage,   RefImagePath[SelectedImageIndex])</l>
-<l>* RectPinholeImagePath_RefImage   := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_referenceImage'</l>
-<l>* RectPinholeImagePath_InputImage := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_defectImage'</l>
-<l>* read_image (RefImage, RectPinholeImagePath_RefImage)</l>
-<l>* read_image (InputImage,   RectPinholeImagePath_InputImage)</l>
+<l>SelectedImageIndex := 9</l>
+<l>* read_image (InputImage, InputImagePath[SelectedImageIndex])</l>
+<l>* read_image (RefImage,   RefImagePath[SelectedImageIndex])</l>
+<l>RectPinholeImagePath_RefImage   := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_referenceImage'</l>
+<l>RectPinholeImagePath_InputImage := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_defectImage'</l>
+<l>read_image (RefImage, RectPinholeImagePath_RefImage)</l>
+<l>read_image (InputImage,   RectPinholeImagePath_InputImage)</l>
 <c></c>
 <c>********************************************************************************</c>
+<c></c>
 <c></c>
 <c></c>
 <c></c>
@@ -73,10 +74,10 @@
 <l>close_edges (EdgesRegion_OpeningShape, EdgeAmplitude_OpeningShape, EdgesExtendedRegion_OpeningShape, 10)</l>
 <l>dilation_circle (EdgesExtendedRegion_OpeningShape, EdgesExtendedRegion_OpeningShape, 3.5)</l>
 <c></c>
-<c>* Try to fill up the edge image, Edge of pinhole will be filled up as the pinhole region in this process</c>
+<c>* Try to fill up the edge image, Edge of bonding pad will be filled up in this process</c>
 <l>fill_up (EdgesExtendedRegion_OpeningShape, RegionFillUp)</l>
 <c></c>
-<c>* Search for the region with maximum area as the pinhole region of reference image</c>
+<c>* Search for the region with maximum area as the bonding pad region of reference image</c>
 <l>connection (RegionFillUp, ConnectedRegions)</l>
 <l>count_obj  (ConnectedRegions, obj_count)</l>
 <l>area_max := 0</l>
@@ -114,7 +115,7 @@
 <c></c>
 <c>*** Procedure   : Search for bonding pad's area in defect image</c>
 <c></c>
-<c>* find the pinhole region in defect image using model matching</c>
+<c>* find the bonding pad region in defect image using model matching</c>
 <l>NumberOfDetectedObj := -1</l>
 <l>MinScore := 0.5</l>
 <l>while ((NumberOfDetectedObj &lt; 1) and (MinScore &gt; 0.01))</l>
@@ -123,7 +124,7 @@
 <l>    NumberOfDetectedObj := |Score|</l>
 <l>endwhile</l>
 <c></c>
-<c>* if detected object is founded more than one object. Then, select the best object which has the highest score</c>
+<c>* If detected object is founded more than one object. Then, select the best object which has the highest score</c>
 <l>if (NumberOfDetectedObj &gt; 1)</l>
 <l>    bestScore_index := 0</l>
 <l>    bestScore := 0</l>
@@ -145,28 +146,35 @@
 <l>    angle_bestScore := Angle_ModelMatching</l>
 <l>endif</l>
 <c></c>
-<l>vector_angle_to_rigid (0, 0, 0, r_bestScore, c_bestScore, angle_bestScore, HomMat2D)  </l>
-<l>affine_trans_contour_xld (ModelContours_Pinhole, ContoursAffineTrans, HomMat2D)    </l>
-<l>gen_region_contour_xld (ContoursAffineTrans, ModelRegion, 'filled')</l>
-<l>union1 (ModelRegion, RegionUnion)</l>
-<l>fill_up(RegionUnion, RegionFillUp)</l>
-<c></c>
-<c>* Search for the region with maximum area as the pinhole region of defect image</c>
-<l>connection (RegionFillUp, ConnectedRegions)</l>
-<l>count_obj  (ConnectedRegions, obj_count)</l>
-<l>area_max := 0</l>
-<l>maximum_area_region_index := 1</l>
-<l>for i := 1 to obj_count by 1</l>
-<l>    select_obj  (ConnectedRegions, SelectedObj, i)</l>
-<l>    area_center (SelectedObj, area, r, c)</l>
-<l>    if (area &gt; area_max)</l>
-<l>        maximum_area_region_index := i</l>
-<l>        area_max := area</l>
-<l>    endif</l>
-<l>endfor</l>
-<l>select_obj  (ConnectedRegions, SelectedObj_MaxArea, maximum_area_region_index)</l>
-<l>gen_empty_region (BondingPadRegion_InputImage)</l>
-<l>BondingPadRegion_InputImage := SelectedObj_MaxArea</l>
+<c>* If bonding pad is not founded. Maybe this is not the bonding pad area. Then, do nothing and return the empty region.</c>
+<l>if(|bestScore| == 0)</l>
+<l>    IsPadFounded := 0</l>
+<c>    * Do nothing</c>
+<l>else</l>
+<l>    IsPadFounded := 1</l>
+<l>    vector_angle_to_rigid (0, 0, 0, r_bestScore, c_bestScore, angle_bestScore, HomMat2D)  </l>
+<l>    affine_trans_contour_xld (ModelContours_Pinhole, ContoursAffineTrans, HomMat2D)    </l>
+<l>    gen_region_contour_xld (ContoursAffineTrans, ModelRegion, 'filled')</l>
+<l>    union1 (ModelRegion, RegionUnion)</l>
+<l>    fill_up(RegionUnion, RegionFillUp)</l>
+<c>    </c>
+<c>    * Search for the region with maximum area as the pinhole region of defect image</c>
+<l>    connection (RegionFillUp, ConnectedRegions)</l>
+<l>    count_obj  (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    maximum_area_region_index := 1</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj  (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            maximum_area_region_index := i</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    select_obj  (ConnectedRegions, SelectedObj_MaxArea, maximum_area_region_index)</l>
+<l>    gen_empty_region (BondingPadRegion_InputImage)</l>
+<l>    BondingPadRegion_InputImage := SelectedObj_MaxArea</l>
+<l>endif</l>
 <c></c>
 <l>* dev_display(InputImage)</l>
 <l>* dev_set_draw('margin')</l>
@@ -182,135 +190,177 @@
 <c></c>
 <c></c>
 <c></c>
-<c>*** Procedure   : Extract defect search region within a bonding pad region.</c>
+<c>*** Procedure   : Extract defect region within a bonding pad region.</c>
 <c>***               1st Algorithm =&gt; Using edge extraction</c>
+<l>if (IsPadFounded == 1)</l>
+<c>    </c>
+<l>    smooth_image  (InputImage, InputImage_Smooth, 'deriche2', 0.8)</l>
+<l>    dilation_circle (BondingPadRegion_InputImage, RegionDilation, 5)</l>
+<l>    reduce_domain (InputImage_Smooth, RegionDilation, BondingPadImage_InputImage)</l>
+<l>    sobel_amp (BondingPadImage_InputImage, EdgeAmplitude_Pad1, 'thin_max_abs', 7)</l>
+<l>    sobel_amp (BondingPadImage_InputImage, EdgeAmplitude_Pad2, 'sum_abs',  9)</l>
+<l>    EdgeAmplitude_BondingPad := EdgeAmplitude_Pad1</l>
+<l>    threshold (EdgeAmplitude_BondingPad, EdgeRegion_BondingPad, 24, 255)</l>
+<l>    close_edges (EdgeRegion_BondingPad, EdgeAmplitude_BondingPad, EdgesExtendedRegion_BondingPad, 18)</l>
+<c>    </c>
+<c>    * Create pinhole's frame region to remove bonding pad's edge from edge image </c>
+<l>    OuterRegion := BondingPadRegion_InputImage</l>
+<l>    erosion_rectangle1 (OuterRegion, InnerRegion, 8, 8)</l>
+<l>    difference (OuterRegion, InnerRegion, FrameBondingPad_InputImage)</l>
+<c>    </c>
+<l>    union2 (FrameBondingPad_InputImage, EdgesExtendedRegion_BondingPad, RegionUnion1)</l>
+<l>    area_center (BondingPadRegion_InputImage, BondingPadArea_InputImage, r, c)</l>
+<l>    fill_up_shape (RegionUnion1, RegionFillUp1, 'area', 1, 0.2*BondingPadArea_InputImage)</l>
+<c>    </c>
+<c>    * Select difference region only the inside as defect region</c>
+<l>    difference (RegionFillUp1, FrameBondingPad_InputImage, RegionDiff)</l>
+<l>    erosion_rectangle1(InnerRegion, tmp, 3, 3)</l>
+<l>    intersection (tmp, RegionDiff, DefectRegion)</l>
+<c>    </c>
+<c>    * Filter a small region in defect region as "noise" by using area</c>
+<l>    erosion_rectangle1 (DefectRegion, ErosedDefectRegion, 1, 2)</l>
+<l>    connection (ErosedDefectRegion, ConnectedRegions)</l>
+<l>    count_obj  (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj  (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    </c>
+<l>    SmallAreaRatio := 0.1</l>
+<l>    NoiseAreaThreshold := 20</l>
+<l>    RoundnessThreshold := 0.55</l>
+<l>    select_shape (ConnectedRegions,     FilteredDefectRegion, 'area', 'and', SmallAreaRatio*area_max, 99999)</l>
+<l>    select_shape (FilteredDefectRegion, FilteredDefectRegion, 'area', 'and', NoiseAreaThreshold,      99999)</l>
+<l>    select_shape (FilteredDefectRegion, FilteredDefectRegion, 'roundness', 'and', RoundnessThreshold, 1)</l>
+<l>    union1(FilteredDefectRegion, FilteredDefectRegion)</l>
+<l>    dilation_rectangle1 (FilteredDefectRegion, FilteredDefectRegion, 1, 2)</l>
+<l>    DefectRegion_Algorithm_EdgeExtraction := FilteredDefectRegion</l>
+<c>    </c>
+<l>    dev_display(InputImage)</l>
+<l>    dev_set_draw('margin')</l>
+<l>    dev_display(DefectRegion_Algorithm_EdgeExtraction) </l>
+<c>    </c>
+<l>endif</l>
 <c></c>
-<l>smooth_image  (InputImage, InputImage_Smooth, 'deriche2', 0.8)</l>
-<l>dilation_circle (BondingPadRegion_InputImage, RegionDilation, 5)</l>
-<l>reduce_domain (InputImage_Smooth, RegionDilation, BondingPadImage_InputImage)</l>
-<l>sobel_amp (BondingPadImage_InputImage, EdgeAmplitude_Pad1, 'thin_max_abs', 7)</l>
-<l>sobel_amp (BondingPadImage_InputImage, EdgeAmplitude_Pad2, 'sum_abs',  9)</l>
-<l>EdgeAmplitude_BondingPad := EdgeAmplitude_Pad1</l>
-<l>threshold (EdgeAmplitude_BondingPad, EdgeRegion_BondingPad, 24, 255)</l>
-<l>close_edges (EdgeRegion_BondingPad, EdgeAmplitude_BondingPad, EdgesExtendedRegion_BondingPad, 18)</l>
-<c></c>
-<c>* Create pinhole's frame region to remove pinhole's edge from edge image </c>
-<l>OuterRegion := BondingPadRegion_InputImage</l>
-<l>erosion_rectangle1 (OuterRegion, InnerRegion, 8, 8)</l>
-<l>difference (OuterRegion, InnerRegion, FrameBondingPad_InputImage)</l>
-<c></c>
-<l>union2 (FrameBondingPad_InputImage, EdgesExtendedRegion_BondingPad, RegionUnion1)</l>
-<l>area_center (BondingPadRegion_InputImage, BondingPadArea_InputImage, r, c)</l>
-<l>fill_up_shape (RegionUnion1, RegionFillUp1, 'area', 1, 0.2*BondingPadArea_InputImage)</l>
-<c></c>
-<c>* Select diff region only the inside as defect region</c>
-<l>difference (RegionFillUp1, FrameBondingPad_InputImage, RegionDiff)</l>
-<l>erosion_rectangle1(InnerRegion, tmp, 3, 3)</l>
-<l>intersection (tmp, RegionDiff, DefectRegion)</l>
-<c></c>
-<c>* Filter a small region in defect region as "noise" by using pixel area</c>
-<l>erosion_rectangle1 (DefectRegion, ErosedDefectRegion, 1, 2)</l>
-<l>connection (ErosedDefectRegion, ConnectedRegions)</l>
-<l>count_obj  (ConnectedRegions, obj_count)</l>
-<l>area_max := 0</l>
-<l>for i := 1 to obj_count by 1</l>
-<l>    select_obj  (ConnectedRegions, SelectedObj, i)</l>
-<l>    area_center (SelectedObj, area, r, c)</l>
-<l>    if (area &gt; area_max)</l>
-<l>        area_max := area</l>
-<l>    endif</l>
-<l>endfor</l>
-<c></c>
-<l>SmallAreaRatio := 0.1</l>
-<l>NoiseAreaThreshold := 20</l>
-<l>RoundnessThreshold := 0.55</l>
-<l>select_shape (ConnectedRegions,     FilteredDefectRegion, 'area', 'and', SmallAreaRatio*area_max, 99999)</l>
-<l>select_shape (FilteredDefectRegion, FilteredDefectRegion, 'area', 'and', NoiseAreaThreshold,      99999)</l>
-<l>select_shape (FilteredDefectRegion, FilteredDefectRegion, 'roundness', 'and', RoundnessThreshold, 1)</l>
-<l>union1(FilteredDefectRegion, FilteredDefectRegion)</l>
-<l>dilation_rectangle1 (FilteredDefectRegion, FilteredDefectRegion, 1, 2)</l>
-<l>DefectRegion_Algorithm_EdgeExtraction := FilteredDefectRegion</l>
-<c></c>
-<l>dev_display(InputImage)</l>
-<l>dev_set_draw('margin')</l>
-<l>dev_display(DefectRegion_Algorithm_EdgeExtraction)</l>
-<l>stop()</l>
+<l>* stop()</l>
 <c></c>
 <c>********************************************************************************</c>
 <c></c>
 <c></c>
 <c></c>
 <c></c>
-<c>*** Procedure   : Extract defect search region within a bonding pad region.</c>
+<c>*** Procedure   : Extract defect region within a bonding pad region.</c>
 <c>***               2nd Algorithm =&gt; Using gray-level thresholding method to find the defect</c>
-<c></c>
-<c>* Find the background level of bonding pad region using histogram value</c>
-<l>smooth_image (InputImage, InputImage_Smooth, 'deriche2', 0.5)</l>
-<l>reduce_domain (InputImage_Smooth, BondingPadRegion_InputImage, ImageReduced)</l>
-<l>gray_histo (BondingPadRegion_InputImage, InputImage_Smooth, AbsoluteHisto, RelativeHisto)</l>
-<c></c>
-<c>* background gray-value should be the gray-value of pixel which has the most histogram number </c>
-<l>backgroundGrayLevel := 1</l>
-<l>MaxHisto := 0</l>
-<l>for i := 1 to 255 by 1</l>
-<l>    if(AbsoluteHisto[i] &gt; MaxHisto)</l>
-<l>        MaxHisto := AbsoluteHisto[i]</l>
-<l>        backgroundGrayLevel := i</l>
+<l>if (IsPadFounded == 1)</l>
+<c>    </c>
+<c>    * Find the background level of bonding pad region using histogram value</c>
+<l>    smooth_image (InputImage, InputImage_Smooth, 'deriche2', 0.5)</l>
+<l>    reduce_domain (InputImage_Smooth, BondingPadRegion_InputImage, ImageReduced)</l>
+<l>    gray_histo (BondingPadRegion_InputImage, InputImage_Smooth, AbsoluteHisto, RelativeHisto)</l>
+<c>    </c>
+<c>    * background gray-value should be the gray-value of pixel which has the most histogram number </c>
+<l>    backgroundGrayLevel := 1</l>
+<l>    MaxHisto := 0</l>
+<l>    for i := 1 to 255 by 1</l>
+<l>        if(AbsoluteHisto[i] &gt; MaxHisto)</l>
+<l>            MaxHisto := AbsoluteHisto[i]</l>
+<l>            backgroundGrayLevel := i</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    </c>
+<c>    * Thresholding to extract the dark-part (grey-level) defect</c>
+<l>    reduce_domain (InputImage, RegionDilation, BondingPadImage_InputImage)</l>
+<l>    DarkThreshold1 := backgroundGrayLevel - 48</l>
+<l>    DarkThreshold2 := backgroundGrayLevel - 45</l>
+<l>    if(DarkThreshold1 &gt; 255)</l>
+<l>        DarkThreshold1 := 255</l>
 <l>    endif</l>
-<l>endfor</l>
-<c></c>
-<c>* Thresholding to extract the dark-part (grey-level) defect</c>
-<l>reduce_domain (InputImage, RegionDilation, BondingPadImage_InputImage)</l>
-<l>hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, backgroundGrayLevel - 48, backgroundGrayLevel - 45, 10)</l>
-<l>closing_circle (ThresholdRegion, RegionClosing, 100)</l>
-<l>difference (RegionClosing, ThresholdRegion, SearchRegion_Dark)</l>
-<c></c>
-<c>* Filtering small area in dark part</c>
-<l>erosion_rectangle1 (SearchRegion_Dark, RegionErosion, 1, 2)</l>
-<l>connection (RegionErosion, ConnectedRegions)</l>
-<l>count_obj  (ConnectedRegions, obj_count)</l>
-<l>area_max := 0</l>
-<l>for i := 1 to obj_count by 1</l>
-<l>    select_obj  (ConnectedRegions, SelectedObj, i)</l>
-<l>    area_center (SelectedObj, area, r, c)</l>
-<l>    if (area &gt; area_max)</l>
-<l>        area_max := area</l>
+<l>    if(DarkThreshold1 &lt; 1)</l>
+<l>        DarkThreshold1 := 1</l>
 <l>    endif</l>
-<l>endfor</l>
-<l>area_max_darkpart := area_max</l>
-<l>select_shape (ConnectedRegions, FilteredSearchRegion_Dark, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
-<l>select_shape (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 'area', 'and', 10, 99999)</l>
-<l>union1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark)</l>
-<l>dilation_rectangle1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 1, 2)</l>
-<c></c>
-<c>* Thresholding to extract the bright-part (grey-level) defect</c>
-<l>hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, backgroundGrayLevel + 30, backgroundGrayLevel + 33, 10)</l>
-<l>SearchRegion_Bright := ThresholdRegion</l>
-<c></c>
-<c>* Filtering small area in dark part</c>
-<l>erosion_rectangle1 (SearchRegion_Bright, RegionErosion, 1, 2)</l>
-<l>connection (RegionErosion, ConnectedRegions)</l>
-<l>count_obj  (ConnectedRegions, obj_count)</l>
-<l>area_max := 0</l>
-<l>for i := 1 to obj_count by 1</l>
-<l>    select_obj  (ConnectedRegions, SelectedObj, i)</l>
-<l>    area_center (SelectedObj, area, r, c)</l>
-<l>    if (area &gt; area_max)</l>
-<l>        area_max := area</l>
+<l>    if(DarkThreshold2 &gt; 255)</l>
+<l>        DarkThreshold2 := 255</l>
 <l>    endif</l>
-<l>endfor</l>
-<l>area_max_darkpart := area_max</l>
-<l>select_shape (ConnectedRegions, FilteredSearchRegion_Bright, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
-<l>select_shape (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 'area', 'and', 10, 99999)</l>
-<l>union1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright)</l>
-<l>dilation_rectangle1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 1, 2)</l>
+<l>    if(DarkThreshold2 &lt; 1)</l>
+<l>        DarkThreshold2 := 1</l>
+<l>    endif</l>
+<l>    if (DarkThreshold2 == DarkThreshold1)</l>
+<l>        DarkThreshold2 := DarkThreshold1 + 2</l>
+<l>    endif</l>
+<l>    hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, DarkThreshold1, DarkThreshold2, 10)</l>
+<l>    closing_circle (ThresholdRegion, RegionClosing, 100)</l>
+<l>    difference (RegionClosing, ThresholdRegion, SearchRegion_Dark)</l>
+<c>    </c>
+<c>    * Filtering small area in dark part</c>
+<l>    erosion_rectangle1 (SearchRegion_Dark, RegionErosion, 1, 2)</l>
+<l>    connection (RegionErosion, ConnectedRegions)</l>
+<l>    count_obj  (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj  (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    area_max_darkpart := area_max</l>
+<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Dark, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
+<l>    select_shape (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 'area', 'and', 10, 99999)</l>
+<l>    union1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark)</l>
+<l>    dilation_rectangle1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 1, 2)</l>
+<c>    </c>
+<c>    * Thresholding to extract the bright-part (grey-level) defect</c>
+<l>    BrightThreshold1 := backgroundGrayLevel + 30</l>
+<l>    BrightThreshold2 := backgroundGrayLevel + 33</l>
+<l>    if(BrightThreshold1 &gt; 255)</l>
+<l>        BrightThreshold1 := 255</l>
+<l>    endif</l>
+<l>    if(BrightThreshold1 &lt; 1)</l>
+<l>        BrightThreshold1 := 1</l>
+<l>    endif</l>
+<l>    if(BrightThreshold2 &gt; 255)</l>
+<l>        BrightThreshold2 := 255</l>
+<l>    endif</l>
+<l>    if(BrightThreshold2 &lt; 1)</l>
+<l>        BrightThreshold2 := 1</l>
+<l>    endif</l>
+<l>    if (BrightThreshold2 == BrightThreshold1)</l>
+<l>        BrightThreshold2 := BrightThreshold1 + 2</l>
+<l>    endif</l>
+<l>    hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, BrightThreshold1, BrightThreshold2, 10)</l>
+<l>    SearchRegion_Bright := ThresholdRegion</l>
+<c>    </c>
+<c>    * Filtering small area in dark part</c>
+<l>    erosion_rectangle1 (SearchRegion_Bright, RegionErosion, 1, 2)</l>
+<l>    connection (RegionErosion, ConnectedRegions)</l>
+<l>    count_obj  (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj  (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    area_max_darkpart := area_max</l>
+<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Bright, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
+<l>    select_shape (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 'area', 'and', 10, 99999)</l>
+<l>    union1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright)</l>
+<l>    dilation_rectangle1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 1, 2)</l>
+<c>    </c>
+<c>    * union between the resulted dark and bright part of defect region</c>
+<l>    union2 (FilteredSearchRegion_Dark, FilteredSearchRegion_Bright, DefectRegion_Algorithm_GrayLevelThreshold)</l>
+<c>    </c>
+<l>    dev_display(InputImage)</l>
+<l>    dev_set_draw('margin')</l>
+<l>    dev_display(DefectRegion_Algorithm_GrayLevelThreshold)    </l>
+<c>    </c>
+<l>endif</l>
 <c></c>
-<c>* union between the resulted dark and bright part of defect region</c>
-<l>union2 (FilteredSearchRegion_Dark, FilteredSearchRegion_Bright, DefectRegion_Algorithm_GrayLevelThreshold)</l>
-<c></c>
-<l>dev_display(InputImage)</l>
-<l>dev_set_draw('margin')</l>
-<l>dev_display(DefectRegion_Algorithm_GrayLevelThreshold)</l>
 <l>* stop()</l>
 <c></c>
 <c>********************************************************************************</c>
@@ -319,15 +369,23 @@
 <c></c>
 <c></c>
 <c>*** Procedure   : Combine the resulted defect regions from both algorithm together</c>
-<c></c>
-<l>union2 (DefectRegion_Algorithm_EdgeExtraction, DefectRegion_Algorithm_GrayLevelThreshold, DefectRegion_Pinhole)</l>
-<c>* filtering a small regions as noise</c>
-<l>connection   (DefectRegion_Pinhole, ConnectedRegions)</l>
-<l>area_center (ConnectedRegions, listArea, r, c)</l>
-<l>tuple_max (listArea, MaxDefectArea)</l>
-<l>MinDefectArea := 0.1*MaxDefectArea</l>
-<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', MinDefectArea, 10000)</l>
-<l>union1(SelectedRegions, FilteredDefectRegion_Pinhole)</l>
+<l>if (IsPadFounded == 1)</l>
+<c>    </c>
+<l>    union2 (DefectRegion_Algorithm_EdgeExtraction, DefectRegion_Algorithm_GrayLevelThreshold, DefectRegion_Pinhole)</l>
+<c>    * filtering a small regions as noise</c>
+<l>    connection   (DefectRegion_Pinhole, ConnectedRegions)</l>
+<l>    area_center (ConnectedRegions, listArea, r, c) </l>
+<l>    count_obj (ConnectedRegions, n)</l>
+<l>    if(n &gt; 0)</l>
+<l>        tuple_max (listArea, MaxDefectArea)</l>
+<l>    else   </l>
+<l>        MaxDefectArea := 0</l>
+<l>    endif</l>
+<l>    MinDefectArea := 0.1*MaxDefectArea</l>
+<l>    select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', MinDefectArea, 10000)</l>
+<l>    union1(SelectedRegions, FilteredDefectRegion_Pinhole)   </l>
+<c>    </c>
+<l>endif</l>
 <c></c>
 <c>********************************************************************************</c>
 <c></c>
@@ -347,16 +405,24 @@
 <l>dev_display(DefectRegion_Algorithm_GrayLevelThreshold)</l>
 <l>stop()</l>
 <c></c>
-<l>message := 'Show the resulted defect region (pinhole)\n' + 'Red  = resulted defect region (final)'</l>
+<l>message := 'Show the resulted pinhole defect region (final)'</l>
 <l>dev_clear_window ()</l>
 <l>dev_display(InputImage)</l>
 <l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
 <l>disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
 <l>dev_set_draw('margin')</l>
-<l>dev_set_color('red')</l>
+<l>dev_set_color('yellow')</l>
 <l>dev_display(FilteredDefectRegion_Pinhole)</l>
-<l>stop()</l>
+<l>* stop()</l>
 <c>********************************************************************************</c>
+<c></c>
+<l>if (IsPadFounded == 1)</l>
+<l>    DefectRegion := FilteredDefectRegion_Pinhole</l>
+<l>else   </l>
+<l>    gen_empty_region (emptyRegion)</l>
+<l>    DefectRegion := emptyRegion</l>
+<l>endif</l>
+<c></c>
 </body>
 <docu id="main">
 <parameters/>

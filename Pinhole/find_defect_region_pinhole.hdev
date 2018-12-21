@@ -50,10 +50,12 @@
 <l>SelectedImageIndex := 9</l>
 <l>* read_image (InputImage, InputImagePath[SelectedImageIndex])</l>
 <l>* read_image (RefImage,   RefImagePath[SelectedImageIndex])</l>
-<l>RectPinholeImagePath_RefImage   := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_referenceImage'</l>
-<l>RectPinholeImagePath_InputImage := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_defectImage'</l>
-<l>read_image (RefImage, RectPinholeImagePath_RefImage)</l>
-<l>read_image (InputImage,   RectPinholeImagePath_InputImage)</l>
+<l>* PinholeImagePath_OtherShape_RefImage   := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_OtherShape_1_RefImage'</l>
+<l>* PinholeImagePath_OtherShape_InputImage := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_OtherShape_1_DefectImage'</l>
+<l>PinholeImagePath_OtherShape_RefImage   := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_OtherShape_2_RefImage'</l>
+<l>PinholeImagePath_OtherShape_InputImage := 'C:/Users/GothicLolitaSama/Desktop/Pinhole_OtherShape_2_DefectImage'</l>
+<l>read_image (RefImage, PinholeImagePath_OtherShape_RefImage)</l>
+<l>read_image (InputImage,   PinholeImagePath_OtherShape_InputImage)</l>
 <c></c>
 <c>********************************************************************************</c>
 <c></c>
@@ -81,18 +83,18 @@
 <l>connection (RegionFillUp, ConnectedRegions)</l>
 <l>count_obj  (ConnectedRegions, obj_count)</l>
 <l>area_max := 0</l>
-<l>maximum_area_region_index := 1</l>
 <l>for i := 1 to obj_count by 1</l>
 <l>    select_obj  (ConnectedRegions, SelectedObj, i)</l>
 <l>    area_center (SelectedObj, area, r, c)</l>
 <l>    if (area &gt; area_max)</l>
-<l>        maximum_area_region_index := i</l>
 <l>        area_max := area</l>
 <l>    endif</l>
 <l>endfor</l>
-<l>select_obj  (ConnectedRegions, SelectedObj_MaxArea, maximum_area_region_index)</l>
+<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 0.5*area_max, 99999)</l>
+<l>union1 (SelectedRegions, RegionUnion)</l>
+<l>closing_circle (RegionUnion, RegionClosing, 80)</l>
 <l>gen_empty_region (BondingPadRegion_RefImage)</l>
-<l>BondingPadRegion_RefImage := SelectedObj_MaxArea</l>
+<l>BondingPadRegion_RefImage := RegionClosing</l>
 <c></c>
 <l>dilation_circle (BondingPadRegion_RefImage, DilationBondingPadRegion_RefImage, 2)</l>
 <l>* stop()</l>
@@ -158,22 +160,22 @@
 <l>    union1 (ModelRegion, RegionUnion)</l>
 <l>    fill_up(RegionUnion, RegionFillUp)</l>
 <c>    </c>
-<c>    * Search for the region with maximum area as the pinhole region of defect image</c>
+<c>    * Search for the region with maximum area as the bonding pad region of defect image</c>
 <l>    connection (RegionFillUp, ConnectedRegions)</l>
 <l>    count_obj  (ConnectedRegions, obj_count)</l>
 <l>    area_max := 0</l>
-<l>    maximum_area_region_index := 1</l>
 <l>    for i := 1 to obj_count by 1</l>
 <l>        select_obj  (ConnectedRegions, SelectedObj, i)</l>
 <l>        area_center (SelectedObj, area, r, c)</l>
 <l>        if (area &gt; area_max)</l>
-<l>            maximum_area_region_index := i</l>
 <l>            area_max := area</l>
 <l>        endif</l>
 <l>    endfor</l>
-<l>    select_obj  (ConnectedRegions, SelectedObj_MaxArea, maximum_area_region_index)</l>
+<l>    select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 0.5*area_max, 99999)</l>
+<l>    union1 (SelectedRegions, RegionUnion)</l>
+<l>    closing_circle (RegionUnion, RegionClosing, 80)</l>
 <l>    gen_empty_region (BondingPadRegion_InputImage)</l>
-<l>    BondingPadRegion_InputImage := SelectedObj_MaxArea</l>
+<l>    BondingPadRegion_InputImage := RegionClosing</l>
 <l>endif</l>
 <c></c>
 <l>* dev_display(InputImage)</l>

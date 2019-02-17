@@ -1,0 +1,3423 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="12.0.3.3">
+<procedure name="main">
+<interface/>
+<body>
+<c>* Classifier for pinhole reverse metal defects.</c>
+<c></c>
+<l>ClassNames := ['False Defect','True Defect']</l>
+<c></c>
+<l>ImageFolderPath := 'E:/My_Workspaces/Engineering_Workspace/IC_Substrate_Image/Filtered_Image_By_Nattapong/For_Pinhole'</l>
+<c></c>
+<c>* The folders that contain the true defect images.</c>
+<l>TrueImageFolders := []</l>
+<l>TrueImageFolders[0] := ImageFolderPath + '/True/Pinhole/TrueDefects_12SEP18/True/Reverse Metal'</l>
+<l>* TrueImageFolders[0] := 'E:/My_Workspaces/Engineering_Workspace/IC_Substrate_Image/FM/TrueDefects_08SEP18/True/Reverse Metal'</l>
+<l>* TrueImageFolders[1] := 'E:/My_Workspaces/Engineering_Workspace/IC_Substrate_Image/Contam_Scratch_Slit_RenameCropHobj_withRefImage_12NOV18/Contamination/TRUE_Reverse_Metal-Contamination-Defect'</l>
+<c></c>
+<c>* The folders that contain the false defect images.</c>
+<l>FalseImageFolders := []</l>
+<l>FalseImageFolders[0] := ImageFolderPath + '/False/FM/TrueDefects_08SEP18/True/Reverse Metal'</l>
+<l>FalseImageFolders[1] := ImageFolderPath + '/False/Particles/True Defects (Not removable)_06SEP18/Reverse Metal'</l>
+<l>FalseImageFolders[2] := ImageFolderPath + '/False/Pinhole/True/Reverse Metal'</l>
+<l>* FalseImageFolders[0] := 'E:/My_Workspaces/Engineering_Workspace/IC_Substrate_Image/FM/FalseDefects_08SEP18/False/Reverse Metal'</l>
+<l>* FalseImageFolders[1] := 'E:/My_Workspaces/Engineering_Workspace/IC_Substrate_Image/Contam_Scratch_Slit_RenameCropHobj_withRefImage_12NOV18/Contamination/FALSE_Reverse_Metal-Contamination-Defect'</l>
+<c></c>
+<l>ovst_mct_layout (TrueImageFolders, TrueCropFiles, TrueHobjFiles, TrueRefFiles)</l>
+<l>ovst_mct_layout (FalseImageFolders, FalseCropFiles, FalseHobjFiles, FalseRefFiles)</l>
+<c></c>
+<l>TrueDefect := 0 //original code = 0</l>
+<l>FalseDefect := 1 //original code = 1</l>
+<c></c>
+<c>* Assign each classifier type a unique number so that we can identify it.</c>
+<l>ClassifierSVM := 1</l>
+<l>ClassifierMLP := 2</l>
+<l>ClassifierGMM := 3</l>
+<l>ClassifierKNN := 4</l>
+<c></c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 512, 512, 'black', WindowHandle)</l>
+<l>set_font (WindowHandle, '-Courier New-15-*-*-*-*-1-')</l>
+<c></c>
+<l>number_of_features := 15 // original 5 Feature Vector</l>
+<c></c>
+<l>get_current_dir (CurrentDir)</l>
+<l>output_dir := CurrentDir + '\\' + 'mis_identified_images'</l>
+<l>file_exists(output_dir, output_dir_exits)</l>
+<c></c>
+<l>if (output_dir_exits)  </l>
+<l>    list_files (output_dir, 'files', existing_files) </l>
+<l>    for i := 0 to |existing_files|-1 by 1      </l>
+<l>        delete_file(existing_files[i])      </l>
+<l>    endfor   </l>
+<l>    remove_dir(output_dir)</l>
+<l>endif</l>
+<l>make_dir(output_dir)</l>
+<c></c>
+<c>* Optimum SVM Images</c>
+<c>* True image set of pinhole by nattapong</c>
+<c>* Cost function score = 12</c>
+<l>GoodImages := [0, 1, 4, 7, 8, 11, 12, 16, 17, 22, 26, 28, 29, 30, 31]</l>
+<c>* Cost function score = 17</c>
+<l>*GoodImages := [0, 3, 4, 5, 7, 10, 14, 15, 18, 21, 24, 25, 26, 30, 32]</l>
+<c></c>
+<l>* GoodImages := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]</l>
+<l>UsePercentFalseImages := 50</l>
+<c></c>
+<c>*=========================================================</c>
+<c>* SVM Classifier</c>
+<c>*=========================================================</c>
+<c></c>
+<l>dev_clear_window()</l>
+<c>       </c>
+<l>NuArr := [0.005, 0.01, 0.015, 0.02, 0.025, 0.03, 0.04, 0.05, 0.1, 0.2]</l>
+<l>GammaArr := [0.01, 0.02, 0.05, 0.1, 0.5]</l>
+<c></c>
+<l>for i := 0 to |NuArr|-1 by 1</l>
+<l>    for j := 0 to |GammaArr|-1 by 1</l>
+<c></c>
+<l>        Nu := NuArr[i]</l>
+<l>        KernelParam := GammaArr[j]   </l>
+<c>             </c>
+<c>        * create the SVM classifier</c>
+<l>        create_class_svm (number_of_features, 'rbf', KernelParam, Nu, |ClassNames|, 'one-versus-all', 'normalization', number_of_features, SVMHandle)</l>
+<c>            </c>
+<c>        * Add percentage of false defect images     </c>
+<l>        ovst_add_percentage_of_images_to_classifier (SVMHandle, FalseCropFiles, FalseRefFiles, FalseHobjFiles, UsePercentFalseImages, FalseDefect, ClassifierSVM)</l>
+<c>        </c>
+<c>        * Add samples of true defects</c>
+<l>        ovst_add_selected_images_to_classifier (SVMHandle, TrueCropFiles, TrueRefFiles, TrueHobjFiles, GoodImages, TrueDefect, ClassifierSVM)</l>
+<c>        </c>
+<c>        * Train the classifier</c>
+<l>        train_class_svm (SVMHandle, 0.001, 'default')</l>
+<c>        </c>
+<l>        false_output_file := output_dir + '\\' + 'svn' + '_KerelParam_' + KernelParam + '_Nu_' + Nu + '_false_mis-identified' + '.txt'   </l>
+<l>        file_exists (false_output_file, output_file_exists)   </l>
+<l>        if (output_file_exists)</l>
+<l>            delete_file (false_output_file)</l>
+<l>        endif</l>
+<c>        </c>
+<c>        * Test the classifier with all samples of false defects</c>
+<l>        ovst_test_classifier (SVMHandle, FalseCropFiles, FalseRefFiles, FalseHobjFiles, FalseDefect, ClassifierSVM, false_output_file, count_false_defect_pass, count_false_defect_fail)</l>
+<c>        </c>
+<l>        true_output_file := output_dir + '\\' + 'svn' + '_KerelParam_' + KernelParam + '_Nu_' + Nu + '_true_mis-identified' + '.txt'   </l>
+<l>        file_exists (true_output_file, output_file_exists)   </l>
+<l>        if (output_file_exists)</l>
+<l>            delete_file (true_output_file)</l>
+<l>        endif    </l>
+<c>         </c>
+<c>        * Test the classifier with all samples of true defects</c>
+<l>        ovst_test_classifier (SVMHandle, TrueCropFiles, TrueRefFiles, TrueHobjFiles, TrueDefect, ClassifierSVM, true_output_file, count_true_defect_pass, count_true_defect_fail)</l>
+<c>          </c>
+<l>        clear_class_svm(SVMHandle)     </l>
+<c>        </c>
+<l>        tuple_split(false_output_file, '\\', subfiles)       </l>
+<l>        false_file := subfiles[|subfiles|-1]</l>
+<c>        </c>
+<l>        tuple_split(true_output_file, '\\', subfiles)       </l>
+<l>        true_file := subfiles[|subfiles|-1]</l>
+<c>             </c>
+<l>        open_file('log_classifier_param.csv', 'append', FileHandle)</l>
+<l>        fwrite_string(FileHandle, ['SVM,', 'FDP False Defect Pass, ', count_false_defect_pass, ', FDF False Defect Fail, ', count_false_defect_fail, ', TDP True Defect Pass, ', count_true_defect_pass, ', TDF True Defect Fail, ', count_true_defect_fail,', Nu, ', Nu, ', KernelParam, ', KernelParam, ', false_file, ', false_file, ', true_file, ', true_file])</l>
+<l>        fnew_line(FileHandle)</l>
+<l>        close_file(FileHandle)</l>
+<c></c>
+<l>    endfor</l>
+<l>endfor</l>
+<c></c>
+<l>disp_text_button(WindowHandle, 'F5 to continue', 'window', 900, 650, 'black', 'gray')</l>
+<c></c>
+<c>*=========================================================</c>
+<c>* MLP Classifier</c>
+<c>*=========================================================</c>
+<c></c>
+<l>dev_clear_window()</l>
+<c></c>
+<l>MaxNumInput := number_of_features</l>
+<l>MaxNumHidden := 80</l>
+<l>MaxNumOutput := 2</l>
+<c></c>
+<l>for numInput := number_of_features to MaxNumInput by 1</l>
+<l>    for numHidden := 10 to MaxNumHidden by 5</l>
+<l>        for numOutput := 2 to MaxNumOutput by 1</l>
+<c>            * Create the MLP classifier.          </c>
+<l>            create_class_mlp (numInput, numHidden, numOutput, 'softmax', 'normalization', number_of_features, 42, MLPHandle)</l>
+<c>            </c>
+<c>            * Add percentage of false defect images     </c>
+<l>            ovst_add_percentage_of_images_to_classifier (MLPHandle, FalseCropFiles, FalseRefFiles, FalseHobjFiles, UsePercentFalseImages, FalseDefect, ClassifierMLP)</l>
+<c>  </c>
+<c>            * Add samples of true defects</c>
+<l>            ovst_add_selected_images_to_classifier (MLPHandle, TrueCropFiles, TrueRefFiles, TrueHobjFiles, GoodImages, TrueDefect, ClassifierMLP)</l>
+<c>                                </c>
+<l>            train_class_mlp (MLPHandle, 200, 1, 0.01, Error, ErrorLog)</l>
+<c>                </c>
+<l>            false_output_file := output_dir + '\\' + 'mlp' + '_numInput_' + numInput + '_numHidden_' + numHidden + '_numOutput_' + numOutput + '_false_mis-identified' + '.txt'</l>
+<l>            file_exists (false_output_file, output_file_exists)   </l>
+<l>            if (output_file_exists)</l>
+<l>                delete_file (false_output_file)</l>
+<l>            endif</l>
+<c>            </c>
+<c>            * Test the classifier with all samples of false defects     </c>
+<l>            ovst_test_classifier (MLPHandle, FalseCropFiles, FalseRefFiles, FalseHobjFiles, FalseDefect, ClassifierMLP, false_output_file, count_false_defect_pass, count_false_defect_fail)</l>
+<c>                </c>
+<l>            true_output_file := output_dir + '\\' + 'mlp' + '_numInput_' + numInput + '_numHidden_' + numHidden + '_numOutput_' + numOutput + '_false_mis-identified' + '.txt'</l>
+<l>            file_exists (true_output_file, output_file_exists)   </l>
+<l>            if (output_file_exists)</l>
+<l>                delete_file (true_output_file)</l>
+<l>            endif            </l>
+<c>            </c>
+<c>            * Test the classifier with all samples of true defects</c>
+<l>            ovst_test_classifier (MLPHandle, TrueCropFiles, TrueRefFiles, TrueHobjFiles, TrueDefect, ClassifierMLP, true_output_file, count_true_defect_pass, count_true_defect_fail)</l>
+<c>                </c>
+<l>            clear_class_mlp(MLPHandle)</l>
+<c>            </c>
+<l>            tuple_split(false_output_file, '\\', subfiles)       </l>
+<l>            false_file := subfiles[|subfiles|-1]</l>
+<c>            </c>
+<l>            tuple_split(true_output_file, '\\', subfiles)       </l>
+<l>            true_file := subfiles[|subfiles|-1]            </l>
+<c>            </c>
+<l>            open_file('log_classifier_param.csv', 'append', FileHandle)</l>
+<l>            fwrite_string(FileHandle, ['MLP,', 'FDP False Defect Pass, ', count_false_defect_pass, ', FDF False Defect Fail, ', count_false_defect_fail, ', TDP True Defect Pass, ', count_true_defect_pass, ', TDF True Defect Fail, ', count_true_defect_fail, ', numInput, ', numInput, ', numHidden, ', numHidden, ', numOuput, ', numOutput, ', false_file, ', false_file, ', true_file, ', true_file])</l>
+<l>            fnew_line(FileHandle)</l>
+<l>            close_file(FileHandle)</l>
+<c></c>
+<l>        endfor</l>
+<l>    endfor</l>
+<l>endfor</l>
+<c></c>
+<l>disp_text_button(WindowHandle, 'F5 to continue', 'window', 900, 650, 'black', 'gray')</l>
+<c></c>
+<c>*=========================================================</c>
+<c>* GMM Classifier</c>
+<c>*=========================================================</c>
+<c></c>
+<l>dev_clear_window()</l>
+<c></c>
+<l>MaxNumDim := number_of_features</l>
+<l>MaxNumClasses := 2</l>
+<l>MaxNumCenters := 3</l>
+<l>count := 0</l>
+<l>UseHalfSamples := 0</l>
+<c></c>
+<l>for numDim := number_of_features to MaxNumDim by 1</l>
+<l>    for numClasses := 2 to MaxNumClasses by 1</l>
+<l>        for numCenters := 1 to MaxNumCenters by 2   </l>
+<c>            </c>
+<c>            * Create the GMM classifier.</c>
+<l>            create_class_gmm (numDim, numClasses, numCenters, 'spherical', 'normalization', 5, 42, GMMHandle)</l>
+<c></c>
+<c>            * Add percentage of false defect images     </c>
+<l>            ovst_add_percentage_of_images_to_classifier (GMMHandle, FalseCropFiles, FalseRefFiles, FalseHobjFiles, UsePercentFalseImages, FalseDefect, ClassifierGMM)</l>
+<c>            </c>
+<c>            * Add samples of true defects</c>
+<l>            ovst_add_selected_images_to_classifier (GMMHandle, TrueCropFiles, TrueRefFiles, TrueHobjFiles, GoodImages, TrueDefect, ClassifierGMM)</l>
+<c>            </c>
+<c>            * Train the GMM.</c>
+<l>            train_class_gmm (GMMHandle, 100, 0.1, 'training', 0.001, Centers, Iter) </l>
+<c>                </c>
+<l>            false_output_file := output_dir + '\\' + 'gmm' + '_numDim_' + numDim + '_numClasses_' + numClasses + '_numCenters_' + numCenters + '_false_mis-identified' + '.txt'</l>
+<l>            file_exists (false_output_file, output_file_exists)   </l>
+<l>            if (output_file_exists)</l>
+<l>                delete_file (false_output_file)</l>
+<l>            endif            </l>
+<c>            </c>
+<c>            * Test the classifier with samples of false defects</c>
+<l>            ovst_test_classifier (GMMHandle, FalseCropFiles, FalseRefFiles, FalseHobjFiles, FalseDefect, ClassifierGMM, false_output_file, count_false_defect_pass, count_false_defect_fail)</l>
+<c>                     </c>
+<l>            true_output_file := output_dir + '\\' + 'mlp' + '_numDim_' + numDim + '_numClasses_' + numClasses + '_numCenters_' + numCenters + '_false_mis-identified' + '.txt'</l>
+<l>            file_exists (true_output_file, output_file_exists)   </l>
+<l>            if (output_file_exists)</l>
+<l>                delete_file (true_output_file)</l>
+<l>            endif               </l>
+<c>            </c>
+<c>            * Test the classifier with samples of true defects</c>
+<l>            ovst_test_classifier (GMMHandle, TrueCropFiles, TrueRefFiles, TrueHobjFiles, TrueDefect, ClassifierGMM, true_output_file, count_true_defect_pass, count_true_defect_fail)</l>
+<c>                      </c>
+<l>            clear_class_gmm(GMMHandle)</l>
+<c></c>
+<l>            tuple_split(false_output_file, '\\', subfiles)       </l>
+<l>            false_file := subfiles[|subfiles|-1]</l>
+<c>            </c>
+<l>            tuple_split(true_output_file, '\\', subfiles)       </l>
+<l>            true_file := subfiles[|subfiles|-1]               </l>
+<c>            </c>
+<l>            open_file('log_classifier_param.csv', 'append', FileHandle)</l>
+<l>            fwrite_string(FileHandle, ['GMM,', 'FDP False Defect Pass, ', count_false_defect_pass, ', FDF False Defect Fail, ', count_false_defect_fail, ', TDP True Defect Pass, ', count_true_defect_pass, ', TDF True Defect Fail, ', count_true_defect_fail, ', numDim, ', numDim, ', numClasses, ', numClasses, ', numCenters, ', numCenters, ', false_file, ', false_file, ', true_file, ', true_file])</l>
+<l>            fnew_line(FileHandle)</l>
+<l>            close_file(FileHandle)</l>
+<c></c>
+<l>        endfor</l>
+<l>    endfor</l>
+<l>endfor</l>
+<c></c>
+<l>disp_text_button(WindowHandle, 'Finished', 'window', 900, 650, 'black', 'gray')</l>
+<c></c>
+<c>*=========================================================</c>
+<c>* k-NN Classifier</c>
+<c>*=========================================================</c>
+<c></c>
+<l>dev_clear_window()</l>
+<c></c>
+<c>* Create the k-NN classifier.</c>
+<l>create_class_knn (number_of_features, KNNHandle)</l>
+<c></c>
+<c>* Add percentage of false defect images     </c>
+<l>ovst_add_percentage_of_images_to_classifier (KNNHandle, FalseCropFiles, FalseRefFiles, FalseHobjFiles, UsePercentFalseImages, FalseDefect, ClassifierKNN)</l>
+<c></c>
+<c>* Add samples of true defects</c>
+<l>ovst_add_selected_images_to_classifier (KNNHandle, TrueCropFiles, TrueRefFiles, TrueHobjFiles, GoodImages, TrueDefect, ClassifierKNN)</l>
+<c>      </c>
+<c>* Train the k-NN classifier.</c>
+<l>train_class_knn (KNNHandle, [], []) </l>
+<c>    </c>
+<l>false_output_file := output_dir + '\\' + 'k-NN' + '_numDim_' + number_of_features + '_true_mis-identified' + '.txt'</l>
+<l>file_exists (false_output_file, output_file_exists)   </l>
+<l>if (output_file_exists)</l>
+<l>    delete_file (false_output_file)</l>
+<l>endif  </l>
+<c></c>
+<c>* Test the classifier with samples of false defects</c>
+<l>ovst_test_classifier (KNNHandle, FalseCropFiles, FalseRefFiles, FalseHobjFiles, FalseDefect, ClassifierKNN, false_output_file, count_false_defect_pass, count_false_defect_fail)</l>
+<c> </c>
+<l>true_output_file := output_dir + '\\' + 'k-NN' + '_numDim_' + number_of_features + '_false_mis-identified' + '.txt'</l>
+<l>file_exists (true_output_file, output_file_exists)   </l>
+<l>if (output_file_exists)</l>
+<l>    delete_file (true_output_file)</l>
+<l>endif </l>
+<c></c>
+<c>* Test the classifier with samples of true defects</c>
+<l>ovst_test_classifier (KNNHandle, TrueCropFiles, TrueRefFiles, FalseHobjFiles, TrueDefect, ClassifierKNN, true_output_file, count_true_defect_pass, count_true_defect_fail)</l>
+<c>  </c>
+<l>clear_class_knn(KNNHandle)</l>
+<c></c>
+<l>tuple_split(false_output_file, '\\', subfiles)       </l>
+<l>false_file := subfiles[|subfiles|-1]</l>
+<c></c>
+<l>tuple_split(true_output_file, '\\', subfiles)       </l>
+<l>true_file := subfiles[|subfiles|-1]</l>
+<c></c>
+<l>open_file('log_classifier_param.csv', 'append', FileHandle)</l>
+<l>fwrite_string(FileHandle, ['KNN,', 'FDP False Defect Pass, ', count_false_defect_pass, ', FDF False Defect Fail, ', count_false_defect_fail, ', TDP True Defect Pass, ', count_true_defect_pass, ', TDF True Defect Fail, ', count_true_defect_fail, ', false_file, ', false_file, ', true_file, ', true_file])</l>
+<l>fnew_line(FileHandle)</l>
+<l>close_file(FileHandle)</l>
+<c></c>
+<l>disp_text_button(WindowHandle, 'Finished', 'window', 900, 650, 'black', 'gray')</l>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+<procedure name="ovst_get_input_folders">
+<interface>
+<ic>
+<par name="FolderDescription" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="InputFolders" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>AddButtonRow := 800 </l>
+<l>AddButtonColumn := 100</l>
+<l>AddButtonWidth := 400</l>
+<l>AddButtonHeight := 100</l>
+<l>DoneButtonRow := 800</l>
+<l>DoneButtonColumn := 600</l>
+<l>DoneButtonWidth := 150</l>
+<l>DoneButtonHeight := 100</l>
+<c></c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 1024, 1024, 'black', WindowHandle)</l>
+<l>set_font (WindowHandle, '-Courier New-15-*-*-*-*-1-')</l>
+<c></c>
+<l>InputFolders := []</l>
+<c></c>
+<l>Done := 0</l>
+<c></c>
+<l>while (Done != 1)</l>
+<l>    set_tposition(WindowHandle, 5, 5 )</l>
+<l>    set_color(WindowHandle, 'white')</l>
+<l>    write_string (WindowHandle, FolderDescription)</l>
+<c>    </c>
+<l>    if (InputFolders != [])     </l>
+<l>         set_color(WindowHandle, 'cyan')     </l>
+<l>        tuple_length (InputFolders, NumInputFolders)               </l>
+<l>        for i := 0 to NumInputFolders-1 by 1         </l>
+<l>            set_tposition(WindowHandle, 50 + 30*i, 20 )         </l>
+<l>            FolderElements :=  split(InputFolders[i], '//')         </l>
+<l>            tuple_length (FolderElements, NumFolderElements)                     </l>
+<l>            write_string(WindowHandle, FolderElements[NumFolderElements-1])</l>
+<l>        endfor      </l>
+<l>    endif</l>
+<c>      </c>
+<l>    disp_text_button (WindowHandle, 'Add Input Folder', 'window', AddButtonRow, AddButtonColumn, 'black', 'green')</l>
+<c>    </c>
+<l>    if (InputFolders != [])</l>
+<l>        disp_text_button (WindowHandle, 'Done', 'window', DoneButtonRow, DoneButtonColumn, 'black', 'red')        </l>
+<l>    endif</l>
+<c>    </c>
+<l>    AddButtonPressed := 0</l>
+<l>    DoneButtonPressed := 0</l>
+<c>     </c>
+<l>    while (AddButtonPressed != 1 and DoneButtonPressed != 1)       </l>
+<l>        dev_error_var (Error, 1)</l>
+<l>        dev_set_check ('~give_error')</l>
+<l>        get_mposition (WindowHandle, Row, Column, MouseButton)    </l>
+<c>        </c>
+<l>        dev_error_var (Error, 0)</l>
+<l>        dev_set_check ('give_error')</l>
+<c>        </c>
+<l>        if (Error == H_MSG_TRUE)   </l>
+<l>            if (MouseButton == 1)</l>
+<l>                if ((Row &gt; AddButtonRow) and (Row &lt; AddButtonRow + AddButtonHeight))        </l>
+<l>                    if ((Column &gt; AddButtonColumn) and (Column &lt; AddButtonColumn + AddButtonWidth))</l>
+<l>                        AddButtonPressed := 1</l>
+<l>                    endif                           </l>
+<l>                endif</l>
+<c>                </c>
+<l>                if (InputFolders != [])</l>
+<l>                    if ((Row &gt; DoneButtonRow) and (Row &lt; DoneButtonRow + DoneButtonHeight))        </l>
+<l>                        if ((Column &gt; DoneButtonColumn) and (Column &lt; DoneButtonColumn + DoneButtonWidth))</l>
+<l>                            DoneButtonPressed := 1                     </l>
+<l>                        endif                           </l>
+<l>                    endif                </l>
+<l>                endif        </l>
+<l>            endif  </l>
+<l>        endif             </l>
+<l>    endwhile</l>
+<c></c>
+<l>    if (AddButtonPressed == 1)</l>
+<l>        dev_open_file_dialog('default','dir','default', NewInputFolder)              </l>
+<l>        tuple_concat (InputFolders, NewInputFolder, InputFolders)      </l>
+<l>    elseif (DoneButtonPressed == 1)</l>
+<l>        Done := 1</l>
+<l>    endif</l>
+<c>    </c>
+<l>endwhile</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_get_input_folders">
+<parameters>
+<parameter id="FolderDescription"/>
+<parameter id="InputFolders"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_choose_classifier_type">
+<interface>
+<oc>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 1024, 1024, 'black', WindowHandle)</l>
+<l>set_font (WindowHandle, '-Courier New-15-*-*-*-*-1-')</l>
+<c></c>
+<l>InputFolders := []</l>
+<c></c>
+<l>Done := 0</l>
+<c></c>
+<l>while (Done != 1)</l>
+<l>    set_tposition(WindowHandle, 5, 5 )</l>
+<l>    set_color(WindowHandle, 'white')</l>
+<l>    write_string(WindowHandle, 'Choose Classifier Type')</l>
+<c> </c>
+<l>    disp_text_button (WindowHandle, 'SVM', 'window', 300, 100, 'black', 'gray')</l>
+<l>    disp_text_button (WindowHandle, 'MLP', 'window', 300, 600, 'black', 'gray')    </l>
+<c>   </c>
+<l>    SVMButtonPressed := 0</l>
+<l>    MLPButtonPressed := 0</l>
+<c>     </c>
+<l>    while (SVMButtonPressed != 1 and MLPButtonPressed != 1)       </l>
+<l>        dev_error_var (Error, 1)</l>
+<l>        dev_set_check ('~give_error')</l>
+<l>        get_mposition (WindowHandle, Row, Column, MouseButton)    </l>
+<c>        </c>
+<l>        dev_error_var (Error, 0)</l>
+<l>        dev_set_check ('give_error')</l>
+<c>        </c>
+<l>        if (Error == H_MSG_TRUE)   </l>
+<l>            if (MouseButton == 1)</l>
+<l>                if ((Row &gt; 300) and (Row &lt; 400))        </l>
+<l>                    if ((Column &gt; 100) and (Column &lt; 300))</l>
+<l>                        SVMButtonPressed := 1</l>
+<l>                    endif                           </l>
+<l>                endif</l>
+<c>                </c>
+<l>                if ((Row &gt; 300) and (Row &lt; 400))        </l>
+<l>                    if ((Column &gt; 600) and (Column &lt; 800))</l>
+<l>                        MLPButtonPressed := 1                     </l>
+<l>                    endif                           </l>
+<l>                endif                      </l>
+<l>            endif  </l>
+<l>        endif             </l>
+<l>    endwhile</l>
+<c></c>
+<l>    if (SVMButtonPressed == 1)</l>
+<l>        ClassifierType := ClassifierTypes[0]</l>
+<l>        Done := 1</l>
+<l>    elseif (MLPButtonPressed == 1)</l>
+<l>        ClassifierType := ClassifierTypes[1]        </l>
+<l>        Done := 1</l>
+<l>    endif   </l>
+<l>endwhile</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_choose_classifier_type">
+<parameters>
+<parameter id="ClassifierType"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_create_svm_classifier">
+<interface/>
+<body>
+<c></c>
+<l>ClassNames := ['True Defect','False Defect']</l>
+<c></c>
+<l>NuArr := [0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3]</l>
+<l>tuple_length(NuArr, NuArrLength)</l>
+<l>GammaArr := [0.01, 0.02, 0.05, 0.1, 0.5]</l>
+<l>tuple_length(GammaArr, GammaArrLength)</l>
+<c></c>
+<l>Nu := NuArr[0]</l>
+<l>KernelParam := GammaArr[0]</l>
+<c></c>
+<l>create_class_svm (13, 'rbf', KernelParam, Nu, |ClassNames|, 'one-versus-all', 'normalization', 10, SVMHandle)</l>
+<c></c>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_create_svm_classifier">
+<parameters/>
+</docu>
+</procedure>
+<procedure name="ovst_add_sample_classifier">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFolders" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+<par name="UseHalfSamples" base_type="ctrl" dimension="0"/>
+</ic>
+</interface>
+<body>
+<c></c>
+<c>* Toogle this value to use only half the samples.</c>
+<l>UseSample := 1</l>
+<c></c>
+<l>count := 0</l>
+<c></c>
+<l>for i := 0 to |ImageFolders|-1 by 1</l>
+<c></c>
+<l>    list_files (ImageFolders[i], 'directories', ParentDirs)</l>
+<c>     </c>
+<l>    for j := 0 to |ParentDirs|-1 by 1   </l>
+<l>        ImageDir := ParentDirs[j] + 'Crop image and crop hobj'     </l>
+<l>        file_exists (ImageDir, FileExists)</l>
+<c>        </c>
+<l>        if (FileExists == 1)       </l>
+<l>            list_files(ImageDir, 'files', ImageFiles)</l>
+<c>        </c>
+<l>            for k := 0 to |ImageFiles|-1 by 1</l>
+<l>                FileExtension := split(ImageFiles[k], '.')</l>
+<c>           </c>
+<l>                if (FileExtension[|FileExtension|-1] == 'tif')</l>
+<c>                    </c>
+<c>                    * We have the option of training with only half the samples.</c>
+<l>                    if ((UseHalfSamples == 0) or (UseSample == 1))                                 </l>
+<l>                        ovst_get_template_image(ImageFiles[k], TemplateFile)       </l>
+<l>                        ovst_get_hobj(ImageFiles[k], hObjPath)</l>
+<c>                        </c>
+<l>                        read_image (PinholeImage, ImageFiles[k])                                                </l>
+<l>                        read_region (hObjRegion, hObjPath)             </l>
+<c>                      </c>
+<l>                        ovst_find_pinhole_region3 (PinholeImage, PinholeRegion)</l>
+<c>                                 </c>
+<l>                        ovst_calculate_pinhole_features2 (PinholeImage, PinholeRegion, Features)</l>
+<c>                         </c>
+<l>                        switch (ClassifierType)                 </l>
+<l>                            case 1:                     </l>
+<l>                            add_sample_class_svm (ClassifierHandle, Features, Class)</l>
+<l>                            break                </l>
+<l>                            case 2:                     </l>
+<l>                            add_sample_class_mlp (ClassifierHandle, Features, Class)</l>
+<l>                            break                </l>
+<l>                            case 3:                     </l>
+<l>                            add_sample_class_gmm (ClassifierHandle, Features, Class, 0)</l>
+<l>                            break                             </l>
+<l>                            case 4:        </l>
+<l>                            add_sample_class_knn (ClassifierHandle, Features, Class)</l>
+<l>                            break                                                 </l>
+<l>                        endswitch                </l>
+<l>                    endif</l>
+<c>                    </c>
+<c>                    * toggle so that we only use half the samples.</c>
+<l>                    if (UseSample == 1)</l>
+<l>                        UseSample := 0</l>
+<l>                    else</l>
+<l>                        UseSample := 1</l>
+<l>                    endif  </l>
+<c>                    </c>
+<l>                    count := count + 1</l>
+<c>                                    </c>
+<l>                endif    </l>
+<l>            endfor</l>
+<l>        endif     </l>
+<l>    endfor    </l>
+<l>endfor</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_add_sample_classifier">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="ImageFolders"/>
+<parameter id="UseHalfSamples"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_get_template_image">
+<interface>
+<ic>
+<par name="ImagePath" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="TemplatePath" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>ImagePathElements := split(ImagePath, '\\')</l>
+<c></c>
+<l>TemplateDir := ''</l>
+<l>for i := 0 to |ImagePathElements|-3 by 1</l>
+<l>    TemplateDir := TemplateDir + ImagePathElements[i] + '\\'</l>
+<l>endfor</l>
+<l>TemplateDir := TemplateDir + 'Background Image wo defect'</l>
+<c></c>
+<l>ImageFileNameElements := split( ImagePathElements[|ImagePathElements|-1], '_')  </l>
+<c></c>
+<l>TemplateFile := ''</l>
+<l>for i := 0 to |ImageFileNameElements|-2 by 1</l>
+<l>    TemplateFile := TemplateFile + ImageFileNameElements[i] + '_'</l>
+<l>endfor</l>
+<l>TemplateFile := TemplateFile + 'CropImageWoDefect.tif'</l>
+<c></c>
+<l>tuple_strchr (TemplateFile, '(', Position1)</l>
+<l>tuple_strchr (TemplateFile, ')', Position2)</l>
+<c></c>
+<l>if (Position2 &gt; 0)</l>
+<l>    tuple_str_first_n (TemplateFile, Position1-1, Substring1)</l>
+<l>    tuple_str_last_n (TemplateFile, Position2+1, Substring2)</l>
+<l>    TemplateFile := Substring1 + Substring2</l>
+<l>endif</l>
+<c></c>
+<l>TemplatePath := TemplateDir + '\\' + TemplateFile</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_get_template_image">
+<parameters>
+<parameter id="ImagePath"/>
+<parameter id="TemplatePath"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_particle_region_uses_reference_image">
+<interface>
+<io>
+<par name="referenceImage" base_type="iconic" dimension="0"/>
+<par name="particleImage" base_type="iconic" dimension="0"/>
+<par name="particlePosition" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="particleRegion" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c>* ronnie. Tries to identify the particle. It should draw a region around the particle.</c>
+<c>* This is the one that I eventually used.</c>
+<c></c>
+<l>area_center (particlePosition, ParticleArea, ParticleRow, ParticleColumn)</l>
+<c></c>
+<l>ParticleRow := int(ParticleRow)</l>
+<l>ParticleColumn := int(ParticleColumn)</l>
+<c></c>
+<l>get_image_size (referenceImage, ReferenceImageWidth, ReferenceImageHeight)</l>
+<c></c>
+<c>* Take the absolute difference between the </c>
+<l>abs_diff_image (particleImage, referenceImage, ImageAbsDiff1, 1)</l>
+<l>emphasize (ImageAbsDiff1, ImageEmphasize, ReferenceImageWidth, ReferenceImageHeight, 2)</l>
+<l>median_image (ImageEmphasize, ImageMedian, 'circle', 2, 'mirrored')</l>
+<c></c>
+<c>* Find the lines defined by the reference image. We ignore any difference points that lie inside these lines.</c>
+<l>threshold (referenceImage, thresholdRegion, 100, 255)</l>
+<l>boundary(thresholdRegion, thresholdBoundary, 'inner')</l>
+<l>dilation_circle (thresholdBoundary, RegionDilation, 6.5)</l>
+<c></c>
+<c>* Threshold the difference image.</c>
+<l>hysteresis_threshold (ImageMedian, RegionHysteresis, 80, 120, 50)</l>
+<l>fill_up (RegionHysteresis, RegionFillUp1)</l>
+<c></c>
+<c>* Find the pixels that intersect the lines. Then subtract those.</c>
+<l>intersection (RegionDilation, RegionFillUp1, RegionIntersection)</l>
+<l>difference (RegionHysteresis, RegionIntersection, RegionDifference)</l>
+<c></c>
+<c>* Make the remaining regions bigger so that close regions touch before connecting them.</c>
+<l>dilation_circle (RegionDifference, RegionDilation1, 12.5)</l>
+<l>connection (RegionDilation1, ConnectedRegions)</l>
+<c></c>
+<c>* Find the region that contains the Hobj provided by MTC</c>
+<l>get_region_index (ConnectedRegions, ParticleRow, ParticleColumn, RegionIndex)</l>
+<c></c>
+<c>* Erode the final, remaining region again so that it is a more realistic size.</c>
+<l>gen_empty_region(particleRegion)</l>
+<c></c>
+<l>if (RegionIndex != [])</l>
+<l>    select_obj (ConnectedRegions, ObjectSelected, RegionIndex)  </l>
+<l>    erosion_circle (ObjectSelected, RegionErosion, 9.5)  </l>
+<l>    fill_up (RegionErosion, particleRegion)</l>
+<l>endif</l>
+<c></c>
+<c>* If the area of the region we have just found is smalled than the Hobj provided by MCT then</c>
+<c>* we just use the Hobj instead.</c>
+<l>area_center (particleRegion, particleRegionArea, row, column)</l>
+<c></c>
+<l>if (particleRegionArea &lt; ParticleArea)</l>
+<l>    particleRegion := particlePosition</l>
+<l>endif</l>
+<c></c>
+<l>shape_trans (particleRegion, particleRegion, 'convex')</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_find_particle_region_uses_reference_image">
+<parameters>
+<parameter id="particleImage"/>
+<parameter id="particlePosition"/>
+<parameter id="particleRegion"/>
+<parameter id="referenceImage"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_get_hobj">
+<interface>
+<ic>
+<par name="ImagePath" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="hObjFile" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>ImageFileParts := split(ImagePath, '.')</l>
+<l>hObjFile := ImageFileParts[0] + '.hobj'</l>
+<l>return ()</l>
+</body>
+<docu id="ovst_get_hobj">
+<parameters>
+<parameter id="ImagePath"/>
+<parameter id="hObjFile"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_calculate_region_features">
+<interface>
+<io>
+<par name="Image" base_type="iconic" dimension="0"/>
+<par name="Region" base_type="iconic" dimension="0"/>
+</io>
+<oc>
+<par name="Features" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c>* Create a feature vector. This feature vector is based on the optimum features created by Halcon.</c>
+<c>* These features were largely for area and gray values.</c>
+<c></c>
+<l>* area_center (Region, Area, Row, Column)</l>
+<l>* cooc_feature_image (Region, Image, 8, 'mean', Energy, Correlation, Homogeneity, Contrast)</l>
+<l>* intensity (Region, Image, Mean, Deviation)</l>
+<l>* compactness (Region, Compactness)</l>
+<l>* eccentricity (Region, Anisometry, Bulkiness, StructureFactor)</l>
+<l>* min_max_gray (Image, Image, 0, Min, Max, Range)</l>
+<c></c>
+<l>* Features := []</l>
+<l>* Features[0] := Area</l>
+<l>* Features[1] := Mean</l>
+<l>* Features[2] := Min</l>
+<l>* Features[3] := Max</l>
+<l>* Features[4] := Anisometry</l>
+<l>* Features := real(Features)</l>
+<c>* </c>
+<l>* Features := real(Features)</l>
+<c>* </c>
+<l>* return ()</l>
+<c></c>
+<c>*==== Test more feature vector ====</c>
+<l>area_center (Region, AreaCenter, Row, Column)</l>
+<l>area_holes  (Image, AreaHole)</l>
+<l>circularity (Region, Circularity)</l>
+<l>intensity (Region, Image, Intensity_Mean, Intensity_Deviation)</l>
+<l>cooc_feature_image (Region, Image, 8, 'mean', Energy, Correlation, Homogeneity, Contrast)</l>
+<l>compactness (Region, Compactness)</l>
+<l>entropy_gray (Region, Image, Entropy, Anisotropy)</l>
+<c></c>
+<l>eccentricity (Region, Anisometry, Bulkiness, StructureFactor)</l>
+<c></c>
+<l>min_max_gray (Image, Image, 0, Min, Max, Range)</l>
+<l>moments_region_2nd (Region, M11, M20, M02, Ia, Ib)</l>
+<c></c>
+<l>Features := []</l>
+<c></c>
+<l>Features[0] := AreaCenter                                                                                          </l>
+<l>Features[1] := Ia</l>
+<l>Features[2] := Ib</l>
+<l>Features[3] := Circularity</l>
+<l>Features[4] := Intensity_Mean</l>
+<l>Features[5] := Intensity_Deviation</l>
+<l>Features[6] := Homogeneity</l>
+<l>Features[7] := StructureFactor</l>
+<c></c>
+<l>Features[8]  := AreaHole</l>
+<l>Features[9]  := Min</l>
+<l>Features[10] := Max</l>
+<l>Features[11] := Range</l>
+<l>Features[12] := Entropy</l>
+<l>Features[13] := Anisotropy</l>
+<l>Features[14] := Correlation</l>
+<c></c>
+<l>* Features[0] := AreaCenter</l>
+<l>* Features[1] := Circularity</l>
+<l>* Features[2] := Compactness</l>
+<l>* Features[3] := Intensity_Mean</l>
+<l>* Features[4] := Intensity_Deviation</l>
+<l>* Features[5] := Entropy</l>
+<l>* Features[6] := Anisotropy</l>
+<l>* Features[7] := Energy</l>
+<l>* Features[8] := Correlation</l>
+<l>* Features[9] := Homogeneity</l>
+<c></c>
+<c></c>
+<c>* </c>
+<l>Features := real(Features) </l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_calculate_region_features">
+<parameters>
+<parameter id="Features"/>
+<parameter id="Image"/>
+<parameter id="Region"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_test_classifier_old">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFolders" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="PassCount" base_type="ctrl" dimension="0"/>
+<par name="FailCount" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>PassCount := 0</l>
+<l>FailCount := 0 </l>
+<c></c>
+<l>for i := 0 to |ImageFolders|-1 by 1</l>
+<c></c>
+<l>    list_files (ImageFolders[i], 'directories', ParentDirs)</l>
+<c>     </c>
+<l>    for j := 0 to |ParentDirs|-1 by 1   </l>
+<l>        ImageDir := ParentDirs[j] + 'Crop image and crop hobj'    </l>
+<l>        file_exists (ImageDir, FileExists)     </l>
+<l>        if (FileExists == 1)      </l>
+<l>            list_files(ImageDir, 'files', ImageFiles)</l>
+<c>        </c>
+<l>            for k := 0 to |ImageFiles|-1 by 1</l>
+<l>                FileExtension := split(ImageFiles[k], '.')         </l>
+<l>                if (FileExtension[|FileExtension|-1] == 'tif')     </l>
+<l>                    ovst_get_template_image(ImageFiles[k], TemplateFile)       </l>
+<l>                    ovst_get_hobj(ImageFiles[k], hObjPath)</l>
+<c>                    </c>
+<l>                    file_exists ('TemplateFile', FileExists1)                           </l>
+<l>                    if (FileExists1 == 1)</l>
+<l>                        read_image (referenceImage, TemplateFile)</l>
+<l>                    endif</l>
+<c>                    </c>
+<l>                    read_image (particleImage, ImageFiles[k])                                                </l>
+<l>                    read_region (estimatedRegion, hObjPath)             </l>
+<c>       </c>
+<l>                    ovst_find_pinhole_region3 (particleImage, particleRegion)</l>
+<c>                    </c>
+<l>                    *ovst_calculate_pinhole_features (particleImage, particleRegion, estimatedRegion, Features)</l>
+<l>                    ovst_calculate_pinhole_features2 (particleImage, particleRegion, Features)</l>
+<c>                                        </c>
+<l>                    switch (ClassifierType)</l>
+<l>                    case 1:</l>
+<l>                        classify_class_svm (ClassifierHandle, Features, 1, ChosenClass)</l>
+<l>                        break</l>
+<l>                    case 2:                                      </l>
+<l>                        classify_class_mlp (ClassifierHandle, Features, 1, ChosenClass, Confidence)</l>
+<l>                        break                </l>
+<l>                    case 3:                                      </l>
+<l>                        classify_class_gmm (ClassifierHandle, Features, 1, ChosenClass, ClassProb, Density, KSigmaProb)</l>
+<l>                        break                       </l>
+<l>                    case 4:                                 </l>
+<l>                        classify_class_knn (ClassifierHandle, Features, ChosenClass, Rating)                      </l>
+<l>                        break                                                </l>
+<l>                    endswitch</l>
+<c>                        </c>
+<l>                    if (ChosenClass == Class)</l>
+<l>                        PassCount := PassCount + 1</l>
+<l>                    else</l>
+<l>                        FailCount := FailCount + 1                         </l>
+<l>                    endif  </l>
+<c>                    </c>
+<l>                endif    </l>
+<l>            endfor   </l>
+<l>        endif    </l>
+<l>    endfor    </l>
+<l>endfor</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_test_classifier_old">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="FailCount"/>
+<parameter id="ImageFolders"/>
+<parameter id="PassCount"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_pinhole_region">
+<interface>
+<io>
+<par name="pinholeImage" base_type="iconic" dimension="0"/>
+<par name="estimatedPinhole" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="pinHole" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c></c>
+<c>* create a circle with the correct size</c>
+<c></c>
+<l>gen_circle_contour_xld (ContCircle, 0, 0, 50, 0, 6.28318, 'positive', 1)</l>
+<c></c>
+<l>create_shape_model_xld (ContCircle, 'auto', 0, 0, 'auto', 'auto', 'ignore_color_polarity', 10, ModelID1)</l>
+<c></c>
+<l>set_shape_model_param (ModelID1, 'border_shape_models', 'true')</l>
+<c></c>
+<l>find_shape_model (pinholeImage, ModelID1, 0, 6.29, 0.0, 0, 0, 'least_squares', 0, 0, Row, Column, Angle, Score)</l>
+<c></c>
+<l>MaxIndex := 0</l>
+<l>MaxScore := 0</l>
+<c></c>
+<l>for i := 0 to |Score|-1 by 1</l>
+<l>    if (Score[i] &gt; MaxScore)</l>
+<l>        MaxScore := Score[i]</l>
+<l>        MaxIndex := i</l>
+<l>    endif</l>
+<l>endfor</l>
+<c></c>
+<l>gen_empty_region(pinHole)</l>
+<c></c>
+<l>n := |Score|</l>
+<c></c>
+<l>if (|Score| &gt; 0)</l>
+<l>    vector_angle_to_rigid (0, 0, 0, Row[MaxIndex], Column[MaxIndex], Angle[MaxIndex], HomMat2D)</l>
+<l>    affine_trans_contour_xld (ContCircle, ContoursAffineTrans, HomMat2D)    </l>
+<l>    gen_region_contour_xld (ContoursAffineTrans, pinHole, 'filled')   </l>
+<l>    n := n + 1</l>
+<l>else    </l>
+<l>    dev_display(pinholeImage)</l>
+<l>    find_shape_model (pinholeImage, ModelID1, 0, 6.29, 0.5, 0, 0, 'least_squares', 0, 0, Row, Column, Angle, Score)    </l>
+<l>    n := |Score|</l>
+<l>endif</l>
+<c></c>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_find_pinhole_region">
+<parameters>
+<parameter id="estimatedPinhole"/>
+<parameter id="pinHole"/>
+<parameter id="pinholeImage"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_calculate_pinhole_features">
+<interface>
+<io>
+<par name="Image" base_type="iconic" dimension="0"/>
+<par name="Region" base_type="iconic" dimension="0"/>
+<par name="hObj" base_type="iconic" dimension="0"/>
+</io>
+<oc>
+<par name="Features" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c></c>
+<l>*cooc_feature_image (Region, Image, 8, 'mean', Energy, Correlation, Homogeneity, Contrast)</l>
+<l>*intensity (Region, Image, Mean, Deviation)</l>
+<l>*Features := []</l>
+<l>*Features[0] := Energy</l>
+<l>*Features[1] := Correlation</l>
+<l>*Features[2] := Homogeneity</l>
+<l>*Features[3] := Contrast</l>
+<l>*Features[4] := Mean</l>
+<l>*Features[5] := Deviation</l>
+<l>*Features := real(Features)</l>
+<l>*return ()</l>
+<c></c>
+<l>area_center (hObj, Area, Row, Column)</l>
+<l>compactness (hObj, Compactness)</l>
+<l>moments_region_central_invar (hObj, PSI1, PSI2, PSI3, PSI4)</l>
+<l>convexity (hObj, Convexity)</l>
+<l>cooc_feature_image (hObj, Image, 6, 90, Energy, Correlation, Homogeneity, Contrast)</l>
+<c></c>
+<l>Features := []</l>
+<l>Features[0] := Area</l>
+<l>Features[1] := Compactness</l>
+<l>Features[2] := PSI1</l>
+<l>Features[3] := PSI2</l>
+<l>Features[4] := PSI3</l>
+<l>Features[5] := PSI4</l>
+<l>Features[6] := Convexity</l>
+<l>Features[7] := Energy</l>
+<l>Features[8] := Correlation</l>
+<l>Features[9] := Homogeneity</l>
+<l>Features[10] := Contrast</l>
+<l>Features := real(Features)</l>
+<c></c>
+<l>return()</l>
+</body>
+<docu id="ovst_calculate_pinhole_features">
+<parameters>
+<parameter id="Features"/>
+<parameter id="Image"/>
+<parameter id="Region"/>
+<parameter id="hObj"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_pinhole_region2">
+<interface>
+<io>
+<par name="PinholeImage" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="PinHole" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c>* This procedure tries to extract the pinhole defects from the reverse metal side of the PCB.</c>
+<c>* If there are no genuine pinhole defects, the procedure tries to extract the false defect regions.</c>
+<c>* </c>
+<c>* Create a circle whose size matches that of the bright circles on the reverse side of the PCB.</c>
+<l>gen_circle_contour_xld (ContCircle, 0, 0, 48, 0, 6.28318, 'positive', 1)</l>
+<l>create_shape_model_xld (ContCircle, 'auto', 0, 0, 'auto', 'auto', 'ignore_color_polarity', 10, ModelCircle)</l>
+<c>* </c>
+<c>* Match circles even if they are partly clipped by the border of the image.</c>
+<l>set_shape_model_param (ModelCircle, 'border_shape_models', 'true')</l>
+<c>* </c>
+<c>* Find all the bright circles in the image.</c>
+<l>find_shape_model (PinholeImage, ModelCircle, 0, 0, 0.5, 1, 0, 'least_squares', 0, 0, Row, Column, Angle, Score)</l>
+<c>* </c>
+<c>* If we don't find any cicles, then lower the acceptance score and try again.</c>
+<l>if (|Score| &lt; 1)</l>
+<c>    * search for circles but using a very low acceptance score.</c>
+<l>    find_shape_model (PinholeImage, ModelCircle, 0, 0, 0.05, 0, 0.5, 'least_squares', 0, 0, Row, Column, Angle, Score)</l>
+<c>    * </c>
+<c>    * find the circle with the maximum score</c>
+<l>    MaxScore := 0</l>
+<l>    MaxScoreIndex := 0</l>
+<l>    for i := 0 to |Score|-1 by 1</l>
+<l>        if (Score[i] &gt; MaxScore)</l>
+<l>            MaxScore := Score[i]</l>
+<l>            MaxScoreIndex := i</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    * </c>
+<c>    * select the best matched circle</c>
+<l>    Row := Row[MaxScoreIndex]</l>
+<l>    Column := Row[MaxScoreIndex]</l>
+<l>    Angle := Row[MaxScoreIndex]</l>
+<l>endif</l>
+<c>* </c>
+<c>* Translate the our circle shape to the position of the found circle</c>
+<l>vector_angle_to_rigid (0, 0, 0, Row, Column, Angle, HomMat2D)</l>
+<l>affine_trans_contour_xld (ContCircle, ContoursAffineTrans, HomMat2D)</l>
+<l>gen_region_contour_xld (ContoursAffineTrans, BrightCircle, 'filled')</l>
+<c>* </c>
+<c>* The border of the bright cicle is a bit fuzzy. Try to exclude the fuzzy region</c>
+<c>* by making the found circle smaller.</c>
+<l>erosion_circle (BrightCircle, RegionErosion, 4.5)</l>
+<c>* </c>
+<c>* Reduce the region of interest to the circle.</c>
+<l>reduce_domain (PinholeImage, RegionErosion, ImageReducedCircle)</l>
+<c>* </c>
+<c>* Create a light gray circle.  We will use this as a threshold to extract the bright regions.</c>
+<l>gen_image_const (LightGrayImage, 'byte', 201, 201)</l>
+<l>overpaint_region (LightGrayImage, BrightCircle, 155, 'fill')</l>
+<l>dyn_threshold (ImageReducedCircle, LightGrayImage, LightRegion, 30, 'light')</l>
+<c>* </c>
+<c>* Create a dark gray circle.  We will use this as a threshold to extract the dark regions.</c>
+<l>gen_image_const (DarkGrayImage, 'byte', 201, 201)</l>
+<l>overpaint_region (DarkGrayImage, BrightCircle, 110, 'fill')</l>
+<l>dyn_threshold (ImageReducedCircle, DarkGrayImage, DarkRegion, 20, 'dark')</l>
+<c>* </c>
+<c>* Close up holes.</c>
+<l>closing_circle (LightRegion, LightRegionClosing, 3.5)</l>
+<l>closing_circle (DarkRegion, DarkRegionClosing, 3.5)</l>
+<c>* </c>
+<c>* Split the single regions into separate regions.</c>
+<l>connection (LightRegionClosing, LightRegions)</l>
+<l>connection (DarkRegionClosing, DarkRegions)</l>
+<c>* </c>
+<c>* Create an empty PinHole region to which we will add defect regions.</c>
+<l>gen_empty_region (PinHole)</l>
+<c>* </c>
+<c>* Add all the bright regions larger than a minimum size.</c>
+<l>area_center (LightRegions, Area, Row, Column)</l>
+<l>for i := 1 to |Area| by 1</l>
+<l>    if (Area[i-1] &gt; 10)</l>
+<l>        select_obj (LightRegions, objSelected, i)</l>
+<l>        concat_obj (PinHole, objSelected, PinHole)</l>
+<l>    endif</l>
+<l>endfor</l>
+<c>* </c>
+<c>* Add all the dark regions larger than a minium size.</c>
+<l>area_center (DarkRegions, Area, Row, Column)</l>
+<l>for i := 1 to |Area| by 1</l>
+<l>    if (Area[i-1] &gt; 20)</l>
+<l>        select_obj (DarkRegions, objSelected, i)</l>
+<l>        concat_obj (PinHole, objSelected, PinHole)</l>
+<l>    endif</l>
+<l>endfor</l>
+<c>* </c>
+<c>* Reduce the region of interest to the PinHole regions.</c>
+<l>reduce_domain (PinholeImage, PinHole, ReducedImage)</l>
+<c>* </c>
+<c>* Fill up any holes in the PinHole region</c>
+<l>fill_up (PinHole, PinHole)</l>
+<c>* </c>
+<c>* Find the centre of the bright circle.</c>
+<l>area_center (BrightCircle, CircleArea, CircleRow, CircleColumn)</l>
+<c>* </c>
+<c>* The next part tries to find defects that lie outside the bright circle.</c>
+<c>* These will probably be foreign material defects. Create a ring outside</c>
+<c>* the bright circle. This ring is composed of two concentric circles.</c>
+<l>gen_circle (CircleInner, CircleRow, CircleColumn, 55)</l>
+<l>gen_circle (CircleOuter, CircleRow, CircleColumn, 100)</l>
+<l>difference (CircleOuter, CircleInner, RingRegion)</l>
+<c>* </c>
+<c>* Reduce the region of interest to the ring.</c>
+<l>reduce_domain (PinholeImage, RingRegion, RingImage)</l>
+<c>* </c>
+<c>* Threshold to include all parts of the image above a very low brightness.</c>
+<l>threshold (RingImage, OutsideRegion, 60, 255)</l>
+<c>* </c>
+<c>* Add all regions above a certain size.</c>
+<l>area_center (OutsideRegion, Area, Row, Column)</l>
+<l>for i := 1 to |Area| by 1</l>
+<l>    if (Area[i-1] &gt; 10)</l>
+<l>        select_obj (OutsideRegion, objSelected, i)</l>
+<l>        concat_obj (PinHole, objSelected, PinHole)</l>
+<l>    endif</l>
+<l>endfor</l>
+<c>* </c>
+<c>* Join all the regions together. If we don't do this then we can run</c>
+<c>* into problems when we try to create the feature vector.</c>
+<l>union1 (PinHole, PinHole)</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_find_pinhole_region2">
+<parameters>
+<parameter id="PinHole"/>
+<parameter id="PinholeImage"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_calculate_pinhole_features2">
+<interface>
+<io>
+<par name="PinHoleImage" base_type="iconic" dimension="0"/>
+<par name="PinHoleRegion" base_type="iconic" dimension="0"/>
+</io>
+<oc>
+<par name="Features" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>area_center (PinHoleRegion, Area, Row, Column)</l>
+<l>cooc_feature_image (PinHoleRegion, PinHoleImage, 8, 'mean', Energy, Correlation, Homogeneity, Contrast)</l>
+<l>intensity (PinHoleRegion, PinHoleImage, Mean, Deviation)</l>
+<l>compactness (PinHoleRegion, Compactness)</l>
+<l>eccentricity (PinHoleRegion, Anisometry, Bulkiness, StructureFactor)</l>
+<l>min_max_gray (PinHoleImage, PinHoleImage, 0, Min, Max, Range)</l>
+<c></c>
+<l>Features := []</l>
+<l>Features[0] := Area</l>
+<l>Features[1] := Mean</l>
+<l>Features[2] := Min</l>
+<l>Features[3] := Max</l>
+<l>Features[4] := Anisometry</l>
+<l>Features := real(Features)</l>
+<c></c>
+<l>*Features := []</l>
+<l>*Features[0] := Area</l>
+<l>*Features[1] := Energy</l>
+<l>*Features[2] := Correlation</l>
+<l>*Features[3] := Homogeneity</l>
+<l>*Features[4] := Contrast</l>
+<l>*Features[5] := Mean</l>
+<l>*Features[6] := Deviation</l>
+<l>*Features[7] := Compactness</l>
+<l>*Features[8] := Anisometry</l>
+<l>*Features[9] := Bulkiness</l>
+<l>*Features[10] := StructureFactor</l>
+<l>*Features[11] := Min</l>
+<l>*Features[12] := Max</l>
+<l>*Features[13] := Range</l>
+<l>*Features := real(Features)</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_calculate_pinhole_features2">
+<parameters>
+<parameter id="Features"/>
+<parameter id="PinHoleImage"/>
+<parameter id="PinHoleRegion"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_pinhole_region3">
+<interface>
+<io>
+<par name="PinholeImage" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="PinHole" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c>* This procedure tries to extract the pinhole defects from the reverse metal side of the PCB.</c>
+<c>* If there are no genuine pinhole defects, the procedure tries to extract the false defect regions.</c>
+<c></c>
+<c>* Create a circle whose size matches that of the bright circles on the reverse side of the PCB.</c>
+<l>gen_circle_contour_xld (ContCircle, 0, 0, 48, 0, 6.28318, 'positive', 1)</l>
+<l>create_shape_model_xld (ContCircle, 'auto', 0, 0, 'auto', 'auto', 'ignore_color_polarity', 10, ModelCircle)</l>
+<c></c>
+<c>* Match circles even if they are partly clipped by the border of the image.</c>
+<l>set_shape_model_param (ModelCircle, 'border_shape_models', 'true')</l>
+<c></c>
+<c>* Find all the bright circles in the image.</c>
+<l>find_shape_model (PinholeImage, ModelCircle, 0, 0, 0.5, 1, 0, 'least_squares', 0, 0, Row, Column, Angle, Score)</l>
+<c></c>
+<c>* If we don't find any cicles, then lower the acceptance score and try again.</c>
+<l>if (|Score| &lt; 1)</l>
+<c>    * search for circles but using a very low acceptance score.</c>
+<l>    find_shape_model (PinholeImage, ModelCircle, 0, 0, 0.05, 0, 0.5, 'least_squares', 0, 0, Row, Column, Angle, Score)</l>
+<c>    </c>
+<c>    * find the circle with the maximum score</c>
+<l>    MaxScore := 0</l>
+<l>    MaxScoreIndex := 0    </l>
+<l>    for i := 0 to |Score|-1 by 1</l>
+<l>        if (Score[i] &gt; MaxScore)</l>
+<l>            MaxScore := Score[i]</l>
+<l>            MaxScoreIndex := i</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    </c>
+<c>    * select the best matched circle</c>
+<l>    Row := Row[MaxScoreIndex]</l>
+<l>    Column := Row[MaxScoreIndex]</l>
+<l>    Angle := Row[MaxScoreIndex]</l>
+<l>endif</l>
+<c></c>
+<c>* Translate the our circle shape to the position of the found circle</c>
+<l>vector_angle_to_rigid (0, 0, 0, Row, Column, Angle, HomMat2D)  </l>
+<l>affine_trans_contour_xld (ContCircle, ContoursAffineTrans, HomMat2D)    </l>
+<l>gen_region_contour_xld (ContoursAffineTrans, BrightCircle, 'filled')   </l>
+<c></c>
+<c>* The border of the bright cicle is a bit fuzzy. Try to exclude the fuzzy region</c>
+<c>* by making the found circle smaller.</c>
+<l>erosion_circle (BrightCircle, RegionErosion, 4.5)</l>
+<c></c>
+<c>* Reduce the region of interest to the circle.</c>
+<l>reduce_domain (PinholeImage, RegionErosion, ImageReducedCircle)</l>
+<c></c>
+<c>* Create a light gray circle.  We will use this as a threshold to extract the bright regions.</c>
+<l>gen_image_const (LightGrayImage, 'byte', 201, 201)</l>
+<l>overpaint_region(LightGrayImage, BrightCircle, 155, 'fill')</l>
+<l>dyn_threshold (ImageReducedCircle, LightGrayImage, LightRegion, 30, 'light')</l>
+<c></c>
+<c>* Create a dark gray circle.  We will use this as a threshold to extract the dark regions.</c>
+<l>gen_image_const (DarkGrayImage, 'byte', 201, 201)</l>
+<l>overpaint_region(DarkGrayImage, BrightCircle, 110, 'fill')</l>
+<l>dyn_threshold (ImageReducedCircle, DarkGrayImage, DarkRegion, 20, 'dark')</l>
+<c></c>
+<c>* Close up holes.</c>
+<l>closing_circle (LightRegion, LightRegionClosing, 3.5)</l>
+<l>closing_circle (DarkRegion, DarkRegionClosing, 3.5)</l>
+<c></c>
+<c>* Split the single regions into separate regions.</c>
+<l>connection(LightRegionClosing, LightRegions)</l>
+<l>connection(DarkRegionClosing, DarkRegions)</l>
+<c></c>
+<c>* Create an empty PinHole region to which we will add defect regions.</c>
+<l>gen_empty_region(PinHole)</l>
+<c></c>
+<c>* Add all the bright regions larger than a minimum size.</c>
+<l>area_center (LightRegions, Area, Row, Column)</l>
+<l>for i := 1 to |Area| by 1 </l>
+<l>    if (Area[i-1] &gt; 10)</l>
+<l>        select_obj(LightRegions, objSelected, i)</l>
+<l>        concat_obj(PinHole, objSelected, PinHole)</l>
+<l>    endif  </l>
+<l>endfor</l>
+<c></c>
+<c>* Add all the dark regions larger than a minium size.</c>
+<l>area_center (DarkRegions, Area, Row, Column)</l>
+<l>for i := 1 to |Area| by 1 </l>
+<l>    if (Area[i-1] &gt; 20)</l>
+<l>        select_obj(DarkRegions, objSelected, i)</l>
+<l>        concat_obj(PinHole, objSelected, PinHole)</l>
+<l>    endif  </l>
+<l>endfor</l>
+<c></c>
+<c>* Reduce the region of interest to the PinHole regions.</c>
+<l>reduce_domain(PinholeImage, PinHole, ReducedImage)</l>
+<c></c>
+<c>* Fill up any holes in the PinHole region</c>
+<l>fill_up(PinHole, PinHole)</l>
+<c></c>
+<c>* Find the centre of the bright circle.</c>
+<l>area_center (BrightCircle, CircleArea, CircleRow, CircleColumn)</l>
+<c></c>
+<c>* The next part tries to find defects that lie outside the bright circle.</c>
+<c>* These will probably be foreign material defects. Create a ring outside</c>
+<c>* the bright circle. This ring is composed of two concentric circles.</c>
+<l>gen_circle(CircleInner, CircleRow, CircleColumn, 55)</l>
+<l>gen_circle(CircleOuter, CircleRow, CircleColumn, 100)</l>
+<l>difference (CircleOuter, CircleInner, RingRegion)</l>
+<c></c>
+<c>* Reduce the region of interest to the ring.</c>
+<l>reduce_domain(PinholeImage, RingRegion, RingImage)</l>
+<c></c>
+<c>* Threshold to include all parts of the image above a very low brightness.</c>
+<l>threshold (RingImage, OutsideRegion, 60, 255)</l>
+<c></c>
+<c>* Add all regions above a certain size.</c>
+<l>area_center (OutsideRegion, Area, Row, Column)</l>
+<l>for i := 1 to |Area| by 1 </l>
+<l>    if (Area[i-1] &gt; 10)</l>
+<l>        select_obj(OutsideRegion, objSelected, i)</l>
+<l>        concat_obj(PinHole, objSelected, PinHole)</l>
+<l>    endif  </l>
+<l>endfor</l>
+<c></c>
+<c>* Join all the regions together. If we don't do this then we can run</c>
+<c>* into problems when we try to create the feature vector.</c>
+<l>union1(PinHole, PinHole)</l>
+<c></c>
+<l>*dev_close_window()</l>
+<l>*dev_open_window(0, 0, 1024, 1024, 'black', WindowHandle)</l>
+<l>*dev_set_draw('margin')</l>
+<l>*set_line_width(WindowHandle, 5)</l>
+<l>*dev_display(PinholeImage)</l>
+<l>*dev_display(PinHole)</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_find_pinhole_region3">
+<parameters>
+<parameter id="PinHole"/>
+<parameter id="PinholeImage"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_evaluate_classifier">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFolders" base_type="ctrl" dimension="0"/>
+<par name="hObjOriginal" base_type="ctrl" dimension="0"/>
+<par name="hObjDrawn" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="PassCount" base_type="ctrl" dimension="0"/>
+<par name="FailCount" base_type="ctrl" dimension="0"/>
+<par name="LowThreshold" base_type="ctrl" dimension="0"/>
+<par name="HighThreshold" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>PassCount := 0</l>
+<l>FailCount := 0 </l>
+<c></c>
+<l>LowThreshold := 99999</l>
+<l>HighThreshold := -99999</l>
+<c></c>
+<c>* Evaluate the classifier with the images in the ImageFolders directory.</c>
+<c>* Returns:</c>
+<c>* PassCount : number of images that were correctly identified.</c>
+<c>* FailCount : number of images that were mis-identified.</c>
+<c>* LowThreshold : The lowest evaluation result value that was found. </c>
+<c>* HighThreshold : The highest evaluation result value that was found. </c>
+<c></c>
+<l>PassCount := 0</l>
+<l>FailCount := 0 </l>
+<c></c>
+<l>LowThreshold := 99999</l>
+<l>HighThreshold := -99999</l>
+<c></c>
+<l>count := 0</l>
+<l>file_name_index := 0</l>
+<l>FileNames := ''</l>
+<c></c>
+<l>list_files (ImageFolders, 'files', ImageFiles)  </l>
+<l>list_files (hObjOriginal, 'files', hObjOriginalFiles)       </l>
+<l>list_files (hObjDrawn, 'files', hObjDrawnFiles)  </l>
+<c></c>
+<l>for k := 0 to |ImageFiles|-1 by 1</l>
+<c>       </c>
+<l>    read_image (particleImage, ImageFiles[k])</l>
+<l>    read_region (OriginalhObj, hObjOriginalFiles[k])                                                </l>
+<l>    read_region (DrawnhObj, hObjDrawnFiles[k])      </l>
+<c>   </c>
+<l>    tuple_split (ImageFiles[k], '\\', substrings)</l>
+<l>    fullfilename := substrings[|substrings|-1]</l>
+<l>    tuple_split (fullfilename, '.', substrings)       </l>
+<l>    filename := substrings[0]</l>
+<c>          </c>
+<l>    if (file_name_index == 0)</l>
+<l>        FileNames := FileNames + filename</l>
+<l>    else</l>
+<l>        FileNames := FileNames + '&amp;' + filename</l>
+<l>    endif</l>
+<c>           </c>
+<l>    file_name_index := file_name_index + 1</l>
+<c>                </c>
+<l>    ovst_calculate_region_features (particleImage, DrawnhObj, Features)                        </l>
+<c>     </c>
+<l>    switch (ClassifierType)</l>
+<l>    case 1:</l>
+<l>        evaluate_class_svm (ClassifierHandle, Features, Result)</l>
+<c>        </c>
+<l>        if (Result &lt; LowThreshold)</l>
+<l>            LowThreshold := Result</l>
+<l>        endif</l>
+<c>        </c>
+<l>        if (Result &gt; HighThreshold)</l>
+<l>            HighThreshold := Result</l>
+<l>        endif</l>
+<c>        </c>
+<l>        if ((Result &gt; 0.998153) and (Result &lt; 1.16762))</l>
+<l>            ChosenClass := 0</l>
+<l>        else</l>
+<l>            ChosenClass := 1</l>
+<l>        endif                        </l>
+<c>        </c>
+<l>        break</l>
+<l>    case 2:                                      </l>
+<l>        evaluate_class_mlp (ClassifierHandle, Features, Result)</l>
+<c>        </c>
+<l>        if (Result[0] &lt; LowThreshold)</l>
+<l>            LowThreshold := Result[0]</l>
+<l>        endif</l>
+<c>        </c>
+<l>        if (Result[0] &gt; HighThreshold)</l>
+<l>            HighThreshold := Result[0]</l>
+<l>        endif</l>
+<c>        </c>
+<l>        if ((Result[0] &gt; 0.973596) and (Result[0] &lt; 0.999964))</l>
+<l>            ChosenClass := 0</l>
+<l>        else</l>
+<l>            ChosenClass := 1</l>
+<l>        endif                         </l>
+<c>                     </c>
+<l>        break                </l>
+<l>    case 3:                                      </l>
+<l>        evaluate_class_gmm (ClassifierHandle, Features, ClassProb, Density, KSigmaProb)</l>
+<l>        Result := KSigmaProb</l>
+<c>        </c>
+<l>        if (Result &lt; LowThreshold)</l>
+<l>            LowThreshold := Result</l>
+<l>        endif</l>
+<c>        </c>
+<l>        if (Result &gt; HighThreshold)</l>
+<l>            HighThreshold := Result</l>
+<l>        endif</l>
+<c>        </c>
+<l>        if ((Result &gt; 0.004111) and (Result &lt; 0.855188))</l>
+<l>            ChosenClass := 0</l>
+<l>        else</l>
+<l>            ChosenClass := 1</l>
+<l>        endif</l>
+<c>        </c>
+<l>        break                       </l>
+<l>    case 4:</l>
+<c>        * k-NN classifier does not seem to have an evalate procedure.</c>
+<l>        classify_class_knn (ClassifierHandle, Features, Result, Rating)    </l>
+<c>        </c>
+<l>        ChosenClass := 0</l>
+<c>        </c>
+<l>        break                                                </l>
+<l>    endswitch</l>
+<c>              </c>
+<l>    if (ChosenClass == Class)</l>
+<l>        PassCount := PassCount + 1</l>
+<l>    else                            </l>
+<l>        FailCount := FailCount + 1                     </l>
+<l>    endif </l>
+<l>endfor</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="ovst_evaluate_classifier">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="FailCount"/>
+<parameter id="HighThreshold"/>
+<parameter id="ImageFolders"/>
+<parameter id="LowThreshold"/>
+<parameter id="PassCount"/>
+<parameter id="hObjDrawn"/>
+<parameter id="hObjOriginal"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_particle_region_ronnie">
+<interface>
+<io>
+<par name="referenceImage" base_type="iconic" dimension="0"/>
+<par name="particleImage" base_type="iconic" dimension="0"/>
+<par name="particlePosition" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="particleRegion" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c>* ronnie. Tries to identify the particle. It should draw a region around the particle.</c>
+<c>* This is the one that I eventually used.</c>
+<c>* </c>
+<l>area_center (particlePosition, ParticleArea, ParticleRow, ParticleColumn)</l>
+<c>* </c>
+<l>ParticleRow := int(ParticleRow)</l>
+<l>ParticleColumn := int(ParticleColumn)</l>
+<c>* </c>
+<l>get_image_size (referenceImage, ReferenceImageWidth, ReferenceImageHeight)</l>
+<c>* </c>
+<c>* Take the absolute difference between the</c>
+<l>abs_diff_image (particleImage, referenceImage, ImageAbsDiff1, 1)</l>
+<l>emphasize (ImageAbsDiff1, ImageEmphasize, ReferenceImageWidth, ReferenceImageHeight, 2)</l>
+<l>median_image (ImageEmphasize, ImageMedian, 'circle', 2, 'mirrored')</l>
+<c>* </c>
+<c>* Find the lines defined by the reference image. We ignore any difference points that lie inside these lines.</c>
+<l>threshold (referenceImage, thresholdRegion, 100, 255)</l>
+<l>boundary (thresholdRegion, thresholdBoundary, 'inner')</l>
+<l>dilation_circle (thresholdBoundary, RegionDilation, 6.5)</l>
+<c>* </c>
+<c>* Threshold the difference image.</c>
+<l>hysteresis_threshold (ImageMedian, RegionHysteresis, 80, 120, 50)</l>
+<l>fill_up (RegionHysteresis, RegionFillUp1)</l>
+<c>* </c>
+<c>* Find the pixels that intersect the lines. Then subtract those.</c>
+<l>intersection (RegionDilation, RegionFillUp1, RegionIntersection)</l>
+<l>difference (RegionHysteresis, RegionIntersection, RegionDifference)</l>
+<c>* </c>
+<c>* Make the remaining regions bigger so that close regions touch before connecting them.</c>
+<l>dilation_circle (RegionDifference, RegionDilation1, 12.5)</l>
+<l>connection (RegionDilation1, ConnectedRegions)</l>
+<c>* </c>
+<c>* Find the region that contains the Hobj provided by MTC</c>
+<l>get_region_index (ConnectedRegions, ParticleRow, ParticleColumn, RegionIndex)</l>
+<c>* </c>
+<c>* Erode the final, remaining region again so that it is a more realistic size.</c>
+<l>gen_empty_region (particleRegion)</l>
+<c>* </c>
+<l>if (RegionIndex != [])</l>
+<l>    select_obj (ConnectedRegions, ObjectSelected, RegionIndex)</l>
+<l>    erosion_circle (ObjectSelected, RegionErosion, 9.5)</l>
+<l>    fill_up (RegionErosion, particleRegion)</l>
+<l>endif</l>
+<c>* </c>
+<c>* If the area of the region we have just found is smalled than the Hobj provided by MCT then</c>
+<c>* we just use the Hobj instead.</c>
+<l>area_center (particleRegion, particleRegionArea, row, column)</l>
+<c>* </c>
+<l>if (particleRegionArea &lt; ParticleArea)</l>
+<l>    particleRegion := particlePosition</l>
+<l>endif</l>
+<c>* </c>
+<l>shape_trans (particleRegion, particleRegion, 'convex')</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_find_particle_region_ronnie">
+<parameters>
+<parameter id="particleImage"/>
+<parameter id="particlePosition"/>
+<parameter id="particleRegion"/>
+<parameter id="referenceImage"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_particle_region_nut">
+<interface>
+<io>
+<par name="ImageIn" base_type="iconic" dimension="0"/>
+<par name="ImageRef" base_type="iconic" dimension="0"/>
+<par name="DefectRegionIn" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="DefectRegionOut" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c>* </c>
+<c>* ************************** Apply a smoothing filter to the image ******************************</c>
+<l>* gauss_filter (ImageIn, ImageIn_Filtered, 3)</l>
+<l>* gauss_filter (ImageRef, ImageRef_Filtered, 3)</l>
+<l>copy_image (ImageIn, ImageIn_Filtered)</l>
+<l>copy_image (ImageRef, ImageRef_Filtered)</l>
+<c>* </c>
+<c>* </c>
+<c>* ********************* Region Extraction using 2 difference algorithms ***************************</c>
+<c>* Display the input</c>
+<l>dev_set_draw ('margin')</l>
+<l>dev_set_color ('red')</l>
+<l>dev_display (ImageIn)</l>
+<l>dev_display (DefectRegionIn)</l>
+<c>* </c>
+<l>Defect_Extraction_Algorithm_1 (ImageIn_Filtered, ImageRef_Filtered, DefectRegionIn, RegionDefectOut_1)</l>
+<l>Defect_Extraction_Algorithm_2 (ImageIn_Filtered, ImageRef_Filtered, DefectRegionIn, RegionDefectOut_2)</l>
+<c>* </c>
+<c>* Combine both resulted regions as "Defect"</c>
+<l>union2 (RegionDefectOut_1, RegionDefectOut_2, RegionDefectOut)</l>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ********** Customize the region for the better result (erosion, noise filtering etc.) **********</c>
+<c>* Filter the small regions by using the relative area (compare all areas to its maxima)</c>
+<l>area_center (RegionDefectOut, DefectArea, Row, Column)</l>
+<l>connection (RegionDefectOut, ConnectedRegions)</l>
+<l>area_center (ConnectedRegions, DefectAreas, Rows, Columns)</l>
+<l>tuple_max (DefectAreas, DefectArea_Max)</l>
+<l>area_threshold := 0.05 * DefectArea_Max</l>
+<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', area_threshold, 30000)</l>
+<c>* </c>
+<c>* Erosion</c>
+<l>min_area_for_erosion := 50</l>
+<l>if (DefectArea &gt; min_area_for_erosion)</l>
+<l>    erosion_rectangle1 (SelectedRegions, RegionDefectOut, 1, 1)</l>
+<l>endif</l>
+<c>* </c>
+<l>remove_noise_region (RegionDefectOut, RegionDefectOut, 'n_8')</l>
+<l>connection (RegionDefectOut, ConnectedRegions)</l>
+<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 5, 30000)</l>
+<l>union1 (SelectedRegions, RegionDefectOut)</l>
+<c>* </c>
+<c>* Fill small hole</c>
+<c>* If the region is not found. Then, we just use the Hobj instead.</c>
+<l>area_center (RegionDefectOut, Area, row, column)</l>
+<l>if (Area == [])</l>
+<l>    RegionDefectOut := DefectRegionIn</l>
+<l>endif</l>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<l>dev_display (ImageIn)</l>
+<l>dev_set_color ('green')</l>
+<l>dev_display (RegionDefectOut_1)</l>
+<l>dev_set_color ('blue')</l>
+<l>dev_display (RegionDefectOut_2)</l>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<l>dev_display (ImageIn)</l>
+<l>dev_set_color ('yellow')</l>
+<l>dev_display (RegionDefectOut)</l>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<l>DefectRegionOut := RegionDefectOut</l>
+<l>return ()</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_find_particle_region_nut">
+<parameters>
+<parameter id="DefectRegionIn"/>
+<parameter id="DefectRegionOut"/>
+<parameter id="ImageIn"/>
+<parameter id="ImageRef"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_add_selected_images_to_classifier">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFiles" base_type="ctrl" dimension="0"/>
+<par name="RefFiles" base_type="ctrl" dimension="0"/>
+<par name="HobjFiles" base_type="ctrl" dimension="0"/>
+<par name="UseImages" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+</ic>
+</interface>
+<body>
+<l>count := 0</l>
+<l>file_name_index := 0</l>
+<l>FileNames := ''</l>
+<c></c>
+<l>for k := 0 to |ImageFiles|-1 by 1</l>
+<c>       </c>
+<l>    read_image (DefectImage, ImageFiles[k])</l>
+<c>    </c>
+<l>    file_exists (RefFiles[k], RefImageFileExists)                                               </l>
+<l>    if(RefImageFileExists==1)</l>
+<l>        read_image (RefImage, RefFiles[k])</l>
+<l>        ovst_find_pinhole_region_by_nattapong (DefectImage, RefImage, hObj)</l>
+<c>       </c>
+<l>    else</l>
+<l>        ovst_find_pinhole_region2 (DefectImage, hObj)</l>
+<l>    endif  </l>
+<c>        </c>
+<l>    use_image := 0</l>
+<l>    for n := 0 to |UseImages|-1 by 1</l>
+<l>        if (count == UseImages[n])</l>
+<l>            use_image := 1</l>
+<l>            break</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    count := count + 1</l>
+<c>    *</c>
+<l>    if (use_image)</l>
+<c>        </c>
+<l>        tuple_split (ImageFiles[k], '\\', substrings)</l>
+<l>        fullfilename := substrings[|substrings|-1]</l>
+<l>        tuple_split (fullfilename, '.', substrings)       </l>
+<l>        filename := substrings[0]</l>
+<c>              </c>
+<l>        if (file_name_index == 0)</l>
+<l>            FileNames := FileNames + filename</l>
+<l>        else</l>
+<l>            FileNames := FileNames + '&amp;' + filename</l>
+<l>        endif</l>
+<c>               </c>
+<l>        file_name_index := file_name_index + 1</l>
+<c>                    </c>
+<l>        ovst_calculate_region_features (DefectImage, hObj, Features)                        </l>
+<c>         </c>
+<l>        switch (ClassifierType)</l>
+<l>        case 1:</l>
+<l>            add_sample_class_svm (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 2:</l>
+<l>            add_sample_class_mlp (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 3:</l>
+<l>            add_sample_class_gmm (ClassifierHandle, Features, Class, 0)</l>
+<l>            break</l>
+<l>        case 4:</l>
+<l>            add_sample_class_knn (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        endswitch</l>
+<l>    endif</l>
+<c>    * </c>
+<l>endfor</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_add_selected_images_to_classifier">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="HobjFiles"/>
+<parameter id="ImageFiles"/>
+<parameter id="RefFiles"/>
+<parameter id="UseImages"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_open_reverse_metal_region">
+<interface>
+<io>
+<par name="OpenImage" base_type="iconic" dimension="0"/>
+<par name="hObjRegion" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="OpenRegion" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c>* </c>
+<c>* create a circle with the correct size</c>
+<c>* </c>
+<l>gen_circle_contour_xld (ContCircle, 0, 0, 50, 0, 6.28318, 'positive', 1)</l>
+<l>create_shape_model_xld (ContCircle, 'auto', 0, 0, 'auto', 'auto', 'ignore_color_polarity', 10, CircleID)</l>
+<l>set_shape_model_param (CircleID, 'border_shape_models', 'true')</l>
+<l>find_shape_model (OpenImage, CircleID, 0, 0, 0.3, 0, 0, 'least_squares', 0, 0, Row, Column, Angle, Score)</l>
+<c>* </c>
+<l>gen_empty_region (OpenRegion)</l>
+<c>* </c>
+<l>if (|Score| &gt; 0)</l>
+<c>    * find all the bright circles</c>
+<l>    gen_empty_region (BrightCircles)</l>
+<l>    for i := 0 to |Score|-1 by 1</l>
+<l>        vector_angle_to_rigid (0, 0, 0, Row[i], Column[i], Angle[i], HomMat2D)</l>
+<l>        affine_trans_contour_xld (ContCircle, ContoursAffineTrans, HomMat2D)</l>
+<l>        gen_region_contour_xld (ContoursAffineTrans, BrightCircle, 'filled')</l>
+<l>        union2 (BrightCircles, BrightCircle, BrightCircles)</l>
+<l>    endfor</l>
+<c>    * </c>
+<l>    connection (BrightCircles, BrightCircles)</l>
+<l>    area_center (hObjRegion, hObjArea, hObjRow, hObjColumn)</l>
+<l>    area_center (BrightCircles, CircleAreas, CircleRows, CircleColumns)</l>
+<c>    * </c>
+<c>    * find the bright circle whose centre is closest to the centre of the hObjRegion.</c>
+<c>    * </c>
+<l>    closest_circle_index := 0</l>
+<l>    closest_circle_distance := 99999</l>
+<c>    * </c>
+<l>    for i := 0 to |CircleAreas|-1 by 1</l>
+<l>        distance := (hObjRow - CircleRows[i]) * (hObjRow - CircleRows[i]) + (hObjRow - CircleColumns[i]) * (hObjColumn - CircleColumns[i])</l>
+<l>        if (distance &lt; closest_circle_distance)</l>
+<l>            closest_circle_index := i</l>
+<l>            closest_circle_distance := distance</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    * </c>
+<c>    * now retrieve the closest circle</c>
+<l>    select_obj (BrightCircles, NearestCircle, closest_circle_index+1)</l>
+<c>    * </c>
+<c>    * find those parts of the hObj that lie outside of this circle.</c>
+<l>    difference (hObjRegion, NearestCircle, DefectRegion)</l>
+<c>    * </c>
+<c>    * only keep the largest region</c>
+<l>    connection (DefectRegion, DefectRegions)</l>
+<c>    * </c>
+<l>    area_center (DefectRegions, Area, Row, Column)</l>
+<c>    * </c>
+<l>    MaxArea := 0</l>
+<l>    MaxAreaIndex := 0</l>
+<l>    for i := 0 to |Area|-1 by 1</l>
+<l>        if (Area &gt; MaxArea)</l>
+<l>            MaxArea := Area</l>
+<l>            MaxAreaIndex := i</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    * </c>
+<l>    select_obj (DefectRegions, DefectRegion, MaxAreaIndex+1)</l>
+<l>    union2 (OpenRegion, DefectRegion, OpenRegion)</l>
+<l>else</l>
+<l>    union2 (OpenRegion, hObjRegion, OpenRegion)</l>
+<l>endif</l>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_find_open_reverse_metal_region">
+<parameters>
+<parameter id="OpenImage"/>
+<parameter id="OpenRegion"/>
+<parameter id="hObjRegion"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_calculate_open_reverse_metal_features2">
+<interface>
+<io>
+<par name="Image" base_type="iconic" dimension="0"/>
+<par name="Region" base_type="iconic" dimension="0"/>
+</io>
+<oc>
+<par name="Features" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c>* </c>
+<l>cooc_feature_image (Region, Image, 6, 90, Energy, Correlation, Homogeneity, Contrast)</l>
+<c>*</c>
+<l>min_max_gray (Region, Image, 0, Min, Max, Range)</l>
+<c></c>
+<l>Features := []</l>
+<c>* </c>
+<l>Features[0] := Min</l>
+<l>Features[1] := Max</l>
+<l>Features[2] := Range</l>
+<l>Features[3] := Energy</l>
+<l>Features[4] := Correlation</l>
+<l>Features[5] := Homogeneity</l>
+<l>Features[6] := Contrast</l>
+<l>Features := real(Features)</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_calculate_open_reverse_metal_features2">
+<parameters>
+<parameter id="Features"/>
+<parameter id="Image"/>
+<parameter id="Region"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_particle_region_uses_background">
+<interface>
+<io>
+<par name="referenceImage" base_type="iconic" dimension="0"/>
+<par name="particleImage" base_type="iconic" dimension="0"/>
+<par name="particlePosition" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="particleRegion" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c>* Try to identify the particle. It should draw a region around the particle.</c>
+<c>* This is the one that I eventually used.</c>
+<c>* </c>
+<l>area_center (particlePosition, ParticleArea, ParticleRow, ParticleColumn)</l>
+<c>* </c>
+<l>ParticleRow := int(ParticleRow)</l>
+<l>ParticleColumn := int(ParticleColumn)</l>
+<c>* </c>
+<l>get_image_size (referenceImage, ReferenceImageWidth, ReferenceImageHeight)</l>
+<c>* </c>
+<c>* Take the absolute difference between the</c>
+<l>abs_diff_image (particleImage, referenceImage, ImageAbsDiff1, 1)</l>
+<l>emphasize (ImageAbsDiff1, ImageEmphasize, ReferenceImageWidth, ReferenceImageHeight, 2)</l>
+<l>median_image (ImageEmphasize, ImageMedian, 'circle', 2, 'mirrored')</l>
+<c>* </c>
+<c>* Find the lines defined by the reference image. We ignore any difference points that lie inside these lines.</c>
+<l>threshold (referenceImage, thresholdRegion, 100, 255)</l>
+<l>boundary (thresholdRegion, thresholdBoundary, 'inner')</l>
+<l>dilation_circle (thresholdBoundary, RegionDilation, 6.5)</l>
+<c>* </c>
+<c>* Threshold the difference image.</c>
+<l>hysteresis_threshold (ImageMedian, RegionHysteresis, 80, 120, 50)</l>
+<l>fill_up (RegionHysteresis, RegionFillUp1)</l>
+<c>* </c>
+<c>* Find the pixels that intersect the lines. Then subtract those.</c>
+<l>intersection (RegionDilation, RegionFillUp1, RegionIntersection)</l>
+<l>difference (RegionHysteresis, RegionIntersection, RegionDifference)</l>
+<c>* </c>
+<c>* Make the remaining regions bigger so that close regions touch before connecting them.</c>
+<l>dilation_circle (RegionDifference, RegionDilation1, 12.5)</l>
+<l>connection (RegionDilation1, ConnectedRegions)</l>
+<c>* </c>
+<c>* Find the region that contains the Hobj provided by MTC</c>
+<l>get_region_index (ConnectedRegions, ParticleRow, ParticleColumn, RegionIndex)</l>
+<c>* </c>
+<c>* Erode the final, remaining region again so that it is a more realistic size.</c>
+<l>gen_empty_region (particleRegion)</l>
+<c>* </c>
+<l>if (RegionIndex != [])</l>
+<l>    select_obj (ConnectedRegions, ObjectSelected, RegionIndex)</l>
+<l>    erosion_circle (ObjectSelected, RegionErosion, 9.5)</l>
+<l>    fill_up (RegionErosion, particleRegion)</l>
+<l>endif</l>
+<c>* </c>
+<c>* If the area of the region we have just found is smalled than the Hobj provided by MCT then</c>
+<c>* we just use the Hobj instead.</c>
+<l>area_center (particleRegion, particleRegionArea, row, column)</l>
+<c>* </c>
+<l>if (particleRegionArea &lt; ParticleArea)</l>
+<l>    particleRegion := particlePosition</l>
+<l>endif</l>
+<c>* </c>
+<l>shape_trans (particleRegion, particleRegion, 'convex')</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_find_particle_region_uses_background">
+<parameters>
+<parameter id="particleImage"/>
+<parameter id="particlePosition"/>
+<parameter id="particleRegion"/>
+<parameter id="referenceImage"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_add_samples_to_classifier_COPY_1">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFolders" base_type="ctrl" dimension="0"/>
+<par name="hObjOriginal" base_type="ctrl" dimension="0"/>
+<par name="hObjDrawn" base_type="ctrl" dimension="0"/>
+<par name="UseImages" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="FileNames" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>count := 0</l>
+<l>file_name_index := 0</l>
+<l>FileNames := ''</l>
+<c>* </c>
+<l>list_files (ImageFolders, 'files', ImageFiles)</l>
+<l>list_files (hObjOriginal, 'files', hObjOriginalFiles)</l>
+<l>list_files (hObjDrawn, 'files', hObjDrawnFiles)</l>
+<c>* </c>
+<l>for k := 0 to |ImageFiles|-1 by 1</l>
+<c>    * </c>
+<l>    read_image (particleImage, ImageFiles[k])</l>
+<l>    read_region (OriginalhObj, hObjOriginalFiles[k])</l>
+<l>    read_region (DrawnhObj, hObjDrawnFiles[k])</l>
+<c>    * </c>
+<l>*     dev_display (particleImage)</l>
+<l>*     dev_set_draw ('margin')</l>
+<l>*     dev_set_color ('red')</l>
+<l>*     dev_set_line_width (5)</l>
+<l>*     dev_display (OriginalhObj)</l>
+<l>*     dev_set_color ('green')</l>
+<l>*     dev_display (DrawnhObj)</l>
+<c>    * </c>
+<l>    use_image := 0</l>
+<l>    for n := 0 to |UseImages|-1 by 1</l>
+<l>        if (count == UseImages[n])</l>
+<l>            use_image := 1</l>
+<l>            break</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    * </c>
+<l>    if (use_image)</l>
+<c>        * </c>
+<l>        tuple_split (ImageFiles[k], '\\', substrings)</l>
+<l>        fullfilename := substrings[|substrings|-1]</l>
+<l>        tuple_split (fullfilename, '.', substrings)</l>
+<l>        filename := substrings[0]</l>
+<c>        * </c>
+<l>        if (file_name_index == 0)</l>
+<l>            FileNames := FileNames + filename</l>
+<l>        else</l>
+<l>            FileNames := FileNames + '&amp;' + filename</l>
+<l>        endif</l>
+<c>        * </c>
+<l>        file_name_index := file_name_index + 1</l>
+<c>        * </c>
+<l>        ovst_calculate_region_features (particleImage, DrawnhObj, Features)</l>
+<c>        * </c>
+<l>        switch (ClassifierType)</l>
+<l>        case 1:</l>
+<l>            add_sample_class_svm (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 2:</l>
+<l>            add_sample_class_mlp (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 3:</l>
+<l>            add_sample_class_gmm (ClassifierHandle, Features, Class, 0)</l>
+<l>            break</l>
+<l>        case 4:</l>
+<l>            add_sample_class_knn (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        endswitch</l>
+<l>    endif</l>
+<c>    * </c>
+<l>    count := count + 1</l>
+<l>endfor</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_add_samples_to_classifier_COPY_1">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="FileNames"/>
+<parameter id="ImageFolders"/>
+<parameter id="UseImages"/>
+<parameter id="hObjDrawn"/>
+<parameter id="hObjOriginal"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_test_classifier_COPY_1">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFolders" base_type="ctrl" dimension="0"/>
+<par name="hObjOriginal" base_type="ctrl" dimension="0"/>
+<par name="hObjDrawn" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="PassCount" base_type="ctrl" dimension="0"/>
+<par name="FailCount" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c>* </c>
+<l>PassCount := 0</l>
+<l>FailCount := 0</l>
+<c>* </c>
+<l>list_files (ImageFolders, 'files', ImageFiles)</l>
+<l>list_files (hObjOriginal, 'files', hObjOriginalFiles)</l>
+<l>list_files (hObjDrawn, 'files', hObjDrawnFiles)</l>
+<c>* </c>
+<l>for k := 0 to |ImageFiles|-1 by 1</l>
+<c>    * </c>
+<l>    read_image (particleImage, ImageFiles[k])</l>
+<l>    read_region (OriginalhObj, hObjOriginalFiles[k])</l>
+<l>    read_region (DrawnhObj, hObjDrawnFiles[k])</l>
+<c>    * </c>
+<l>    ovst_calculate_region_features (particleImage, DrawnhObj, Features)</l>
+<c>    * </c>
+<l>    switch (ClassifierType)</l>
+<l>    case 1:</l>
+<l>        classify_class_svm (ClassifierHandle, real(Features), 1, ChosenClass)</l>
+<l>        break</l>
+<l>    case 2:</l>
+<l>        classify_class_mlp (ClassifierHandle, real(Features), 1, ChosenClass, Confidence)</l>
+<l>        break</l>
+<l>    case 3:</l>
+<l>        classify_class_gmm (ClassifierHandle, real(Features), 1, ChosenClass, ClassProb, Density, KSigmaProb)</l>
+<l>        break</l>
+<l>    case 4:</l>
+<l>        classify_class_knn (ClassifierHandle, real(Features), ChosenClass, Rating)</l>
+<l>        break</l>
+<l>    endswitch</l>
+<c>    * </c>
+<l>    if (ChosenClass == Class)</l>
+<l>        PassCount := PassCount + 1</l>
+<l>    else</l>
+<l>        FailCount := FailCount + 1</l>
+<l>    endif</l>
+<c>    * </c>
+<l>*     if ((Class == -1) and (ChosenClass == -1))</l>
+<l>*         dev_close_window ()</l>
+<l>*         dev_open_window (0, 0, 1024, 1024, 'black', WindowHandle)</l>
+<l>*         set_font (WindowHandle, '-Courier New-15-*-*-*-*-1-')</l>
+<l>*         dev_display (particleImage)</l>
+<l>*         dev_set_draw ('fill')</l>
+<l>*         dev_set_color ('red')</l>
+<l>*         dev_display (OriginalhObj)</l>
+<l>*         dev_set_draw ('margin')</l>
+<l>*         dev_set_color ('green')</l>
+<l>*         dev_display (DrawnhObj)</l>
+<l>*         FileParts := split(ImageFiles[k], '\\')</l>
+<l>*         set_tposition (WindowHandle, 5, 5)</l>
+<l>*         write_string (WindowHandle, FileParts[|FileParts|-1])</l>
+<l>*     endif</l>
+<c>    * </c>
+<l>endfor</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_test_classifier_COPY_1">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="FailCount"/>
+<parameter id="ImageFolders"/>
+<parameter id="PassCount"/>
+<parameter id="hObjDrawn"/>
+<parameter id="hObjOriginal"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_test_classifier">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFiles" base_type="ctrl" dimension="0"/>
+<par name="RefFiles" base_type="ctrl" dimension="0"/>
+<par name="HobjFiles" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+<par name="OutputFile" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="PassCount" base_type="ctrl" dimension="0"/>
+<par name="FailCount" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c>* </c>
+<l>open_file(OutputFile, 'append', FileHandle)</l>
+<c></c>
+<l>PassCount := 0</l>
+<l>FailCount := 0</l>
+<c>* </c>
+<c>* </c>
+<l>for k := 0 to |ImageFiles|-1 by 1</l>
+<c>    * </c>
+<l>    read_image (DefectImage, ImageFiles[k])</l>
+<c>    </c>
+<l>    file_exists (RefFiles[k], RefImageFileExists)                                               </l>
+<l>    if(RefImageFileExists==1)</l>
+<l>        read_image (RefImage, RefFiles[k])</l>
+<l>        ovst_find_pinhole_region_by_nattapong (DefectImage, RefImage, hObj)</l>
+<c>       </c>
+<l>    else</l>
+<l>        ovst_find_pinhole_region2 (DefectImage, hObj)</l>
+<l>    endif  </l>
+<c>    </c>
+<c>    * </c>
+<l>    ovst_calculate_region_features (DefectImage, hObj, Features)</l>
+<c>    * </c>
+<l>    switch (ClassifierType)</l>
+<l>    case 1:</l>
+<l>        classify_class_svm (ClassifierHandle, real(Features), 1, ChosenClass)</l>
+<l>        break</l>
+<l>    case 2:</l>
+<l>        classify_class_mlp (ClassifierHandle, real(Features), 1, ChosenClass, Confidence)</l>
+<l>        break</l>
+<l>    case 3:</l>
+<l>        classify_class_gmm (ClassifierHandle, real(Features), 1, ChosenClass, ClassProb, Density, KSigmaProb)</l>
+<l>        break</l>
+<l>    case 4:</l>
+<l>        classify_class_knn (ClassifierHandle, real(Features), ChosenClass, Rating)</l>
+<l>        break</l>
+<l>    endswitch</l>
+<c>    * </c>
+<l>    if (ChosenClass == Class)</l>
+<l>        PassCount := PassCount + 1</l>
+<l>    else</l>
+<l>        FailCount := FailCount + 1</l>
+<l>    endif</l>
+<c>       </c>
+<l>    if (ChosenClass != Class)</l>
+<l>        fwrite_string(FileHandle, ImageFiles[k])        </l>
+<l>        fnew_line(FileHandle)      </l>
+<l>        fwrite_string(FileHandle, HobjFiles[k])        </l>
+<l>        fnew_line(FileHandle)                          </l>
+<l>    endif</l>
+<c></c>
+<l>endfor</l>
+<c>* </c>
+<l>close_file(FileHandle)</l>
+<c>    </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_test_classifier">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="FailCount"/>
+<parameter id="HobjFiles"/>
+<parameter id="ImageFiles"/>
+<parameter id="OutputFile"/>
+<parameter id="PassCount"/>
+<parameter id="RefFiles"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_add_samples_to_classifier">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFolders" base_type="ctrl" dimension="0"/>
+<par name="hObjOriginal" base_type="ctrl" dimension="0"/>
+<par name="hObjDrawn" base_type="ctrl" dimension="0"/>
+<par name="UseImages" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="FileNames" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>count := 0</l>
+<l>file_name_index := 0</l>
+<l>FileNames := ''</l>
+<c>* </c>
+<l>list_files (ImageFolders, 'files', ImageFiles)</l>
+<l>list_files (hObjOriginal, 'files', hObjOriginalFiles)</l>
+<l>list_files (hObjDrawn, 'files', hObjDrawnFiles)</l>
+<c>* </c>
+<l>for k := 0 to |ImageFiles|-1 by 1</l>
+<c>    * </c>
+<l>    read_image (particleImage, ImageFiles[k])</l>
+<l>    read_region (OriginalhObj, hObjOriginalFiles[k])</l>
+<l>    read_region (DrawnhObj, hObjDrawnFiles[k])</l>
+<c>    * </c>
+<l>*     dev_display (particleImage)</l>
+<l>*     dev_set_draw ('margin')</l>
+<l>*     dev_set_color ('red')</l>
+<l>*     dev_set_line_width (5)</l>
+<l>*     dev_display (OriginalhObj)</l>
+<l>*     dev_set_color ('green')</l>
+<l>*     dev_display (DrawnhObj)</l>
+<c>    * </c>
+<l>    use_image := 0</l>
+<l>    for n := 0 to |UseImages|-1 by 1</l>
+<l>        if (count == UseImages[n])</l>
+<l>            use_image := 1</l>
+<l>            break</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    * </c>
+<l>    if (use_image)</l>
+<c>        * </c>
+<l>        tuple_split (ImageFiles[k], '\\', substrings)</l>
+<l>        fullfilename := substrings[|substrings|-1]</l>
+<l>        tuple_split (fullfilename, '.', substrings)</l>
+<l>        filename := substrings[0]</l>
+<c>        * </c>
+<l>        if (file_name_index == 0)</l>
+<l>            FileNames := FileNames + filename</l>
+<l>        else</l>
+<l>            FileNames := FileNames + '&amp;' + filename</l>
+<l>        endif</l>
+<c>        * </c>
+<l>        file_name_index := file_name_index + 1</l>
+<c>        * </c>
+<l>        ovst_calculate_region_features (particleImage, DrawnhObj, Features)</l>
+<c>        * </c>
+<l>        switch (ClassifierType)</l>
+<l>        case 1:</l>
+<l>            add_sample_class_svm (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 2:</l>
+<l>            add_sample_class_mlp (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 3:</l>
+<l>            add_sample_class_gmm (ClassifierHandle, Features, Class, 0)</l>
+<l>            break</l>
+<l>        case 4:</l>
+<l>            add_sample_class_knn (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        endswitch</l>
+<l>    endif</l>
+<c>    * </c>
+<l>    count := count + 1</l>
+<l>endfor</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_add_samples_to_classifier">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="FileNames"/>
+<parameter id="ImageFolders"/>
+<parameter id="UseImages"/>
+<parameter id="hObjDrawn"/>
+<parameter id="hObjOriginal"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_add_sample_classifier_COPY_1">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFolders" base_type="ctrl" dimension="0"/>
+<par name="hObjOriginal" base_type="ctrl" dimension="0"/>
+<par name="hObjDrawn" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+<par name="UseHalfSamples" base_type="ctrl" dimension="0"/>
+</ic>
+</interface>
+<body>
+<c>* </c>
+<c>* Toogle this value to use only half the samples.</c>
+<l>UseSample := 1</l>
+<c>* </c>
+<l>list_files (ImageFolders, 'files', ImageFiles)</l>
+<l>list_files (hObjOriginal, 'files', hObjOriginalFiles)</l>
+<l>list_files (hObjDrawn, 'files', hObjDrawnFiles)</l>
+<c>* </c>
+<l>for k := 0 to |ImageFiles|-1 by 1</l>
+<c>    * </c>
+<l>    read_image (particleImage, ImageFiles[k])</l>
+<l>    read_region (OriginalhObj, hObjOriginalFiles[k])</l>
+<l>    read_region (DrawnhObj, hObjDrawnFiles[k])</l>
+<c>    * </c>
+<l>    if ((UseHalfSamples == 0) or (UseSample == 1))</l>
+<c>        * </c>
+<l>        ovst_calculate_region_features (particleImage, DrawnhObj, Features)</l>
+<c>        * </c>
+<l>        switch (ClassifierType)</l>
+<l>        case 1:</l>
+<l>            add_sample_class_svm (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 2:</l>
+<l>            add_sample_class_mlp (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 3:</l>
+<l>            add_sample_class_gmm (ClassifierHandle, Features, Class, 0)</l>
+<l>            break</l>
+<l>        case 4:</l>
+<l>            add_sample_class_knn (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        endswitch</l>
+<c>        * </c>
+<l>    endif</l>
+<c>    * </c>
+<c>    * toggle so that we only use half the samples.</c>
+<l>    if (UseSample == 1)</l>
+<l>        UseSample := 0</l>
+<l>    else</l>
+<l>        UseSample := 1</l>
+<l>    endif</l>
+<l>endfor</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_add_sample_classifier_COPY_1">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="ImageFolders"/>
+<parameter id="UseHalfSamples"/>
+<parameter id="hObjDrawn"/>
+<parameter id="hObjOriginal"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_add_percentage_of_images_to_classifier">
+<interface>
+<ic>
+<par name="ClassifierHandle" base_type="ctrl" dimension="0"/>
+<par name="ImageFiles" base_type="ctrl" dimension="0"/>
+<par name="RefFiles" base_type="ctrl" dimension="0"/>
+<par name="HobjFiles" base_type="ctrl" dimension="0"/>
+<par name="Percent" base_type="ctrl" dimension="0"/>
+<par name="Class" base_type="ctrl" dimension="0"/>
+<par name="ClassifierType" base_type="ctrl" dimension="0"/>
+</ic>
+</interface>
+<body>
+<c>* </c>
+<c>* Toogle this value to use only half the samples.</c>
+<l>use_image := 0</l>
+<c>* </c>
+<l>sum_percentage := 0</l>
+<l>fraction := real(Percent) / 100.0</l>
+<c>* </c>
+<l>file_name_index := 0</l>
+<l>FileNames := ''</l>
+<c>* </c>
+<c>* </c>
+<l>for k := 0 to |ImageFiles|-1 by 1</l>
+<c>    * </c>
+<l>    read_image (DefectImage, ImageFiles[k])</l>
+<c>    </c>
+<l>    file_exists (RefFiles[k], RefImageFileExists)                                               </l>
+<l>    if(RefImageFileExists==1)</l>
+<l>        read_image (RefImage, RefFiles[k])</l>
+<l>        ovst_find_pinhole_region_by_nattapong (DefectImage, RefImage, hObj)</l>
+<c>       </c>
+<l>    else</l>
+<l>        ovst_find_pinhole_region2 (DefectImage, hObj)</l>
+<l>    endif  </l>
+<c>    * </c>
+<c>    * </c>
+<l>    sum_percentage := sum_percentage + fraction</l>
+<c>    * </c>
+<l>    if (sum_percentage &gt;= 1)</l>
+<l>        use_image := 1</l>
+<l>        sum_percentage := sum_percentage - 1.0</l>
+<l>    else</l>
+<l>        use_image := 0</l>
+<l>    endif</l>
+<c>    * </c>
+<l>    if (use_image)</l>
+<l>        ovst_calculate_region_features (DefectImage, hObj, Features)</l>
+<c>        * </c>
+<l>        switch (ClassifierType)</l>
+<l>        case 1:</l>
+<l>            add_sample_class_svm (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 2:</l>
+<l>            add_sample_class_mlp (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        case 3:</l>
+<l>            add_sample_class_gmm (ClassifierHandle, Features, Class, 0)</l>
+<l>            break</l>
+<l>        case 4:</l>
+<l>            add_sample_class_knn (ClassifierHandle, Features, Class)</l>
+<l>            break</l>
+<l>        endswitch</l>
+<l>    endif</l>
+<c>    * </c>
+<l>endfor</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_add_percentage_of_images_to_classifier">
+<parameters>
+<parameter id="Class"/>
+<parameter id="ClassifierHandle"/>
+<parameter id="ClassifierType"/>
+<parameter id="HobjFiles"/>
+<parameter id="ImageFiles"/>
+<parameter id="Percent"/>
+<parameter id="RefFiles"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_mct_layout">
+<interface>
+<ic>
+<par name="ImageFolders" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="CropFiles" base_type="ctrl" dimension="0"/>
+<par name="HobjFiles" base_type="ctrl" dimension="0"/>
+<par name="RefFiles" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c>* </c>
+<l>CropFiles := []</l>
+<l>HobjFiles := []</l>
+<l>RefFiles := []</l>
+<c>* </c>
+<l>FileCount := 0</l>
+<c>* </c>
+<l>for i := 0 to |ImageFolders|-1 by 1</l>
+<c>    * </c>
+<l>    list_files (ImageFolders[i], 'directories', ParentDirs)</l>
+<c>    * </c>
+<l>    for j := 0 to |ParentDirs|-1 by 1</l>
+<l>        ImageDir := ParentDirs[j] + 'Crop image and crop hobj'</l>
+<l>        file_exists (ImageDir, FileExists)</l>
+<l>        if (FileExists == 1)</l>
+<l>            list_files (ImageDir, 'files', ImageFiles)</l>
+<c>            * </c>
+<l>            for k := 0 to |ImageFiles|-1 by 1</l>
+<l>                FileExtension := split(ImageFiles[k], '.')</l>
+<l>                if (FileExtension[|FileExtension|-1] == 'tif')</l>
+<l>                    ovst_get_reference_image (ImageFiles[k], ReferenceFile)</l>
+<l>                    ovst_get_hobj (ImageFiles[k], hObjPath)</l>
+<c>                    * </c>
+<l>                    file_exists (ReferenceFile, ReferenceFileExists)</l>
+<l>                    if (ReferenceFileExists != 1)</l>
+<l>                        ReferenceFile := ''</l>
+<l>                    endif</l>
+<c>                    * </c>
+<l>                    CropFiles[FileCount] := ImageFiles[k]</l>
+<l>                    HobjFiles[FileCount] := hObjPath</l>
+<l>                    RefFiles[FileCount] := ReferenceFile</l>
+<c>                    * </c>
+<l>                    FileCount := FileCount + 1</l>
+<l>                endif</l>
+<l>            endfor</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>endfor</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_mct_layout">
+<parameters>
+<parameter id="CropFiles"/>
+<parameter id="HobjFiles"/>
+<parameter id="ImageFolders"/>
+<parameter id="RefFiles"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_get_reference_image">
+<interface>
+<ic>
+<par name="ImagePath" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="TemplatePath" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>ImagePathElements := split(ImagePath, '\\')</l>
+<c>* </c>
+<l>TemplateDir := ''</l>
+<l>for i := 0 to |ImagePathElements|-3 by 1</l>
+<l>    TemplateDir := TemplateDir + ImagePathElements[i] + '\\'</l>
+<l>endfor</l>
+<l>TemplateDir := TemplateDir + 'Background Image wo defect'</l>
+<c>* </c>
+<l>ImageFileNameElements := split( ImagePathElements[|ImagePathElements|-1], '_')</l>
+<c>* </c>
+<l>TemplateFile := ''</l>
+<l>for i := 0 to |ImageFileNameElements|-2 by 1</l>
+<l>    TemplateFile := TemplateFile + ImageFileNameElements[i] + '_'</l>
+<l>endfor</l>
+<l>TemplateFile := TemplateFile + 'CropImageWoDefect.tif'</l>
+<c>* </c>
+<l>tuple_strchr (TemplateFile, '(', Position1)</l>
+<l>tuple_strchr (TemplateFile, ')', Position2)</l>
+<c>* </c>
+<l>if (Position2 &gt; 0)</l>
+<l>    tuple_str_first_n (TemplateFile, Position1-1, Substring1)</l>
+<l>    tuple_str_last_n (TemplateFile, Position2+1, Substring2)</l>
+<l>    TemplateFile := Substring1 + Substring2</l>
+<l>endif</l>
+<c>* </c>
+<l>TemplatePath := TemplateDir + '\\' + TemplateFile</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_get_reference_image">
+<parameters>
+<parameter id="ImagePath"/>
+<parameter id="TemplatePath"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_pinhole_region_nattapong">
+<interface>
+<io>
+<par name="InputImage" base_type="iconic" dimension="0"/>
+<par name="RefImage" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="DefectRegion" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c>* </c>
+<l>* dev_close_window ()</l>
+<l>* dev_open_window (0, 0, 512, 512, 'black', WindowHandle)</l>
+<l>* dev_update_on ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Locate the main "Bonding pad"</c>
+<c>* ** Description : To extract the region of main Bonding pad before searching the defect on that region later</c>
+<c>* </c>
+<c>* Smooth reference image &amp; gray opening algorithm</c>
+<l>smooth_image (RefImage, RefImage_Smooth, 'deriche2', 0.8)</l>
+<l>gray_opening_shape (RefImage_Smooth, RefImage_OpeningShape, 13, 13, 'octagon')</l>
+<c>* </c>
+<c>* Edge extraction</c>
+<l>sobel_amp (RefImage_OpeningShape, EdgeAmplitude_OpeningShape, 'thin_max_abs', 9)</l>
+<l>emphasize (EdgeAmplitude_OpeningShape, EdgeAmplitude_OpeningShape, 9, 9, 1.0)</l>
+<l>threshold (EdgeAmplitude_OpeningShape, EdgesRegion_OpeningShape, 35, 255)</l>
+<l>close_edges (EdgesRegion_OpeningShape, EdgeAmplitude_OpeningShape, EdgesExtendedRegion_OpeningShape, 10)</l>
+<l>dilation_circle (EdgesExtendedRegion_OpeningShape, EdgesExtendedRegion_OpeningShape, 3.5)</l>
+<c>* </c>
+<c>* Try to fill up the edge image, Edge of bonding pad will be filled up in this process</c>
+<l>fill_up (EdgesExtendedRegion_OpeningShape, RegionFillUp)</l>
+<c>* </c>
+<c>* Search for the region with maximum area as the bonding pad region of reference image</c>
+<l>connection (RegionFillUp, ConnectedRegions)</l>
+<l>count_obj (ConnectedRegions, obj_count)</l>
+<l>area_max := 0</l>
+<l>for i := 1 to obj_count by 1</l>
+<l>    select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>    area_center (SelectedObj, area, r, c)</l>
+<l>    if (area &gt; area_max)</l>
+<l>        area_max := area</l>
+<l>    endif</l>
+<l>endfor</l>
+<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 0.5*area_max, 99999)</l>
+<l>union1 (SelectedRegions, RegionUnion)</l>
+<l>closing_circle (RegionUnion, RegionClosing, 80)</l>
+<l>gen_empty_region (BondingPadRegion_RefImage)</l>
+<l>BondingPadRegion_RefImage := RegionClosing</l>
+<c>* </c>
+<l>dilation_circle (BondingPadRegion_RefImage, DilationBondingPadRegion_RefImage, 2)</l>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Generate shape model for bonding pad detection using reference image</c>
+<c>* </c>
+<l>reduce_domain (RefImage, DilationBondingPadRegion_RefImage, DilationBondingPadImage_RefImage)</l>
+<l>mean_image (DilationBondingPadImage_RefImage, ImageMean, 5, 5)</l>
+<l>create_shape_model (ImageMean, 'auto', -0.39, 0.79, 'auto', 'auto', 'use_polarity', 'auto', 'auto', ModelID)</l>
+<l>get_shape_model_contours (ModelContours_Pinhole, ModelID, 1)</l>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Search for bonding pad's area in defect image</c>
+<c>* </c>
+<c>* find the bonding pad region in defect image using model matching</c>
+<l>NumberOfDetectedObj := -1</l>
+<l>MinScore := 0.5</l>
+<l>while ((NumberOfDetectedObj &lt; 1) and (MinScore &gt; 0.1))</l>
+<l>    find_shape_model (InputImage, ModelID, 0, 1.57, MinScore, 0, 0.5, 'least_squares_high', 0, 0, Row_ModelMatching, Column_ModelMatching, Angle_ModelMatching, Score)</l>
+<l>    MinScore := MinScore - 0.05</l>
+<l>    NumberOfDetectedObj := |Score|</l>
+<l>endwhile</l>
+<c>* </c>
+<c>* If detected object is founded more than one object. Then, select the best object which has the highest score</c>
+<l>if (NumberOfDetectedObj &gt; 1)</l>
+<l>    bestScore_index := 0</l>
+<l>    bestScore := 0</l>
+<l>    r_bestScore := 0</l>
+<l>    c_bestScore := 0</l>
+<l>    for i := 0 to NumberOfDetectedObj - 1 by 1</l>
+<l>        if (Score[i] &gt; bestScore)</l>
+<l>            bestScore_index := i</l>
+<l>            bestScore := Score[i]</l>
+<l>            r_bestScore := Row_ModelMatching[i]</l>
+<l>            c_bestScore := Column_ModelMatching[i]</l>
+<l>            angle_bestScore := Angle_ModelMatching[i]</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>else</l>
+<l>    bestScore := Score</l>
+<l>    r_bestScore := Row_ModelMatching</l>
+<l>    c_bestScore := Column_ModelMatching</l>
+<l>    angle_bestScore := Angle_ModelMatching</l>
+<l>endif</l>
+<c>* </c>
+<c>* If bonding pad is not founded. Maybe this is not the bonding pad area. Then, do nothing and return the empty region.</c>
+<l>if (|bestScore| == 0)</l>
+<l>    IsPadFounded := 0</l>
+<c>    * Do nothing</c>
+<l>else</l>
+<l>    IsPadFounded := 1</l>
+<l>    vector_angle_to_rigid (0, 0, 0, r_bestScore, c_bestScore, angle_bestScore, HomMat2D)</l>
+<l>    affine_trans_contour_xld (ModelContours_Pinhole, ContoursAffineTrans, HomMat2D)</l>
+<l>    gen_region_contour_xld (ContoursAffineTrans, ModelRegion, 'filled')</l>
+<l>    union1 (ModelRegion, RegionUnion)</l>
+<l>    fill_up (RegionUnion, RegionFillUp)</l>
+<c>    * </c>
+<c>    * Search for the region with maximum area as the bonding pad region of defect image</c>
+<l>    connection (RegionFillUp, ConnectedRegions)</l>
+<l>    count_obj (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 0.5*area_max, 99999)</l>
+<l>    union1 (SelectedRegions, RegionUnion)</l>
+<l>    closing_circle (RegionUnion, RegionClosing, 80)</l>
+<l>    gen_empty_region (BondingPadRegion_InputImage)</l>
+<l>    BondingPadRegion_InputImage := RegionClosing</l>
+<l>endif</l>
+<c>* </c>
+<l>* dev_display (InputImage)</l>
+<l>* dev_set_draw ('margin')</l>
+<l>* dev_display (BondingPadRegion_InputImage)</l>
+<l>* stop ()</l>
+<l>* dev_display (RefImage)</l>
+<l>* dev_set_draw ('margin')</l>
+<l>* dev_display (BondingPadRegion_RefImage)</l>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Extract defect region within a bonding pad region.</c>
+<c>* **               1st Algorithm =&gt; Using edge extraction</c>
+<l>if (IsPadFounded == 1)</l>
+<c>    * </c>
+<l>    smooth_image (InputImage, InputImage_Smooth, 'deriche2', 0.8)</l>
+<l>    dilation_circle (BondingPadRegion_InputImage, RegionDilation, 5)</l>
+<l>    reduce_domain (InputImage_Smooth, RegionDilation, BondingPadImage_InputImage)</l>
+<l>    sobel_amp (BondingPadImage_InputImage, EdgeAmplitude_Pad1, 'thin_max_abs', 7)</l>
+<l>    sobel_amp (BondingPadImage_InputImage, EdgeAmplitude_Pad2, 'sum_abs', 9)</l>
+<l>    EdgeAmplitude_BondingPad := EdgeAmplitude_Pad1</l>
+<l>    threshold (EdgeAmplitude_BondingPad, EdgeRegion_BondingPad, 24, 255)</l>
+<l>    close_edges (EdgeRegion_BondingPad, EdgeAmplitude_BondingPad, EdgesExtendedRegion_BondingPad, 18)</l>
+<c>    * </c>
+<c>    * Create pinhole's frame region to remove bonding pad's edge from edge image</c>
+<l>    OuterRegion := BondingPadRegion_InputImage</l>
+<l>    erosion_rectangle1 (OuterRegion, InnerRegion, 8, 8)</l>
+<l>    difference (OuterRegion, InnerRegion, FrameBondingPad_InputImage)</l>
+<c>    * </c>
+<l>    union2 (FrameBondingPad_InputImage, EdgesExtendedRegion_BondingPad, RegionUnion1)</l>
+<l>    area_center (BondingPadRegion_InputImage, BondingPadArea_InputImage, r, c)</l>
+<l>    fill_up_shape (RegionUnion1, RegionFillUp1, 'area', 1, 0.2*BondingPadArea_InputImage)</l>
+<c>    * </c>
+<c>    * Select difference region only the inside as defect region</c>
+<l>    difference (RegionFillUp1, FrameBondingPad_InputImage, RegionDiff)</l>
+<l>    erosion_rectangle1 (InnerRegion, tmp, 3, 3)</l>
+<l>    intersection (tmp, RegionDiff, DefectRegion)</l>
+<c>    * </c>
+<c>    * Filter a small region in defect region as "noise" by using area</c>
+<l>    erosion_rectangle1 (DefectRegion, ErosedDefectRegion, 2, 3)</l>
+<l>    connection (ErosedDefectRegion, ConnectedRegions)</l>
+<l>    count_obj (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    * </c>
+<l>    SmallAreaRatio := 0.1</l>
+<l>    NoiseAreaThreshold := 20</l>
+<l>    RoundnessThreshold := 0.55</l>
+<l>    select_shape (ConnectedRegions, FilteredDefectRegion, 'area', 'and', SmallAreaRatio*area_max, 99999)</l>
+<l>    select_shape (FilteredDefectRegion, FilteredDefectRegion, 'area', 'and', NoiseAreaThreshold, 99999)</l>
+<l>    select_shape (FilteredDefectRegion, FilteredDefectRegion, 'roundness', 'and', RoundnessThreshold, 1)</l>
+<l>    union1 (FilteredDefectRegion, FilteredDefectRegion)</l>
+<l>    dilation_rectangle1 (FilteredDefectRegion, FilteredDefectRegion, 1, 2)</l>
+<l>    DefectRegion_Algorithm_EdgeExtraction := FilteredDefectRegion</l>
+<c>    * </c>
+<l>*     dev_display (InputImage)</l>
+<l>*     dev_set_draw ('margin')</l>
+<l>*     dev_display (DefectRegion_Algorithm_EdgeExtraction)</l>
+<c>    * </c>
+<l>endif</l>
+<c>* </c>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Extract defect region within a bonding pad region.</c>
+<c>* **               2nd Algorithm =&gt; Using gray-level thresholding method to find the defect</c>
+<l>if (IsPadFounded == 1)</l>
+<c>    * </c>
+<c>    * Find the background level of bonding pad region using histogram value</c>
+<l>*     smooth_image (InputImage, InputImage_Smooth, 'deriche2', 0.5)</l>
+<l>*     reduce_domain (InputImage_Smooth, BondingPadRegion_InputImage, ImageReduced)</l>
+<l>*     gray_histo (BondingPadRegion_InputImage, InputImage_Smooth, AbsoluteHisto, RelativeHisto)</l>
+<c>    * </c>
+<l>    smooth_image (RefImage, RefImage_Smooth, 'deriche2', 0.5)</l>
+<l>    reduce_domain (RefImage_Smooth, BondingPadRegion_RefImage, ImageReduced)</l>
+<l>    gray_histo (BondingPadRegion_RefImage, RefImage_Smooth, AbsoluteHisto, RelativeHisto)</l>
+<c>    * </c>
+<c>    * background gray-value should be the gray-value of pixel which has the most histogram number</c>
+<l>    backgroundGrayLevel := 1</l>
+<l>    MaxHisto := 0</l>
+<l>    for i := 1 to 255 by 1</l>
+<l>        if (AbsoluteHisto[i] &gt; MaxHisto)</l>
+<l>            MaxHisto := AbsoluteHisto[i]</l>
+<l>            backgroundGrayLevel := i</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    * </c>
+<c>    * Thresholding to extract the dark-part (grey-level) defect</c>
+<l>    reduce_domain (InputImage, RegionDilation, BondingPadImage_InputImage)</l>
+<l>    DarkThreshold1 := backgroundGrayLevel - 38</l>
+<l>    DarkThreshold2 := backgroundGrayLevel - 35</l>
+<l>    if (DarkThreshold1 &gt; 255)</l>
+<l>        DarkThreshold1 := 255</l>
+<l>    endif</l>
+<l>    if (DarkThreshold1 &lt; 1)</l>
+<l>        DarkThreshold1 := 1</l>
+<l>    endif</l>
+<l>    if (DarkThreshold2 &gt; 255)</l>
+<l>        DarkThreshold2 := 255</l>
+<l>    endif</l>
+<l>    if (DarkThreshold2 &lt; 1)</l>
+<l>        DarkThreshold2 := 1</l>
+<l>    endif</l>
+<l>    if (DarkThreshold2 == DarkThreshold1)</l>
+<l>        DarkThreshold2 := DarkThreshold1 + 2</l>
+<l>    endif</l>
+<l>    hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, DarkThreshold1, DarkThreshold2, 10)</l>
+<l>    closing_circle (ThresholdRegion, RegionClosing, 400)</l>
+<l>    tmpPadRegion := BondingPadRegion_InputImage</l>
+<l>    erosion_rectangle1 (tmpPadRegion, tmpPadRegion, 13, 13)</l>
+<l>    union2 (RegionClosing, tmpPadRegion, RegionClosing)</l>
+<l>    closing_circle (RegionClosing, RegionClosing, 400)</l>
+<l>    difference (RegionClosing, ThresholdRegion, SearchRegion_Dark)</l>
+<c>    * </c>
+<c>    * Filtering small area in dark part</c>
+<l>    erosion_rectangle1 (SearchRegion_Dark, RegionErosion, 1, 2)</l>
+<l>    connection (RegionErosion, ConnectedRegions)</l>
+<l>    count_obj (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    area_max_darkpart := area_max</l>
+<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Dark, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
+<l>    select_shape (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 'area', 'and', 10, 99999)</l>
+<l>    union1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark)</l>
+<l>    dilation_rectangle1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 1, 2)</l>
+<c>    * </c>
+<l>*     dev_display (InputImage)</l>
+<l>*     dev_set_draw ('fill')</l>
+<l>*     dev_set_color ('yellow')</l>
+<l>*     dev_display (ThresholdRegion)</l>
+<l>*     dev_set_draw ('margin')</l>
+<l>*     dev_set_color ('green')</l>
+<l>*     dev_display (RegionClosing)</l>
+<l>*     dev_set_color ('red')</l>
+<l>*     dev_display (InnerRegion)</l>
+<c>    * </c>
+<c>    * Thresholding to extract the bright-part (grey-level) defect</c>
+<l>    BrightThreshold1 := backgroundGrayLevel + 28</l>
+<l>    BrightThreshold2 := backgroundGrayLevel + 31</l>
+<l>    if (BrightThreshold1 &gt; 255)</l>
+<l>        BrightThreshold1 := 255</l>
+<l>    endif</l>
+<l>    if (BrightThreshold1 &lt; 1)</l>
+<l>        BrightThreshold1 := 1</l>
+<l>    endif</l>
+<l>    if (BrightThreshold2 &gt; 255)</l>
+<l>        BrightThreshold2 := 255</l>
+<l>    endif</l>
+<l>    if (BrightThreshold2 &lt; 1)</l>
+<l>        BrightThreshold2 := 1</l>
+<l>    endif</l>
+<l>    if (BrightThreshold2 == BrightThreshold1)</l>
+<l>        BrightThreshold2 := BrightThreshold1 + 2</l>
+<l>    endif</l>
+<l>    hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, BrightThreshold1, BrightThreshold2, 10)</l>
+<l>    SearchRegion_Bright := ThresholdRegion</l>
+<c>    * </c>
+<c>    * Filtering small area in bright part</c>
+<l>    erosion_rectangle1 (SearchRegion_Bright, RegionErosion, 1, 2)</l>
+<l>    connection (RegionErosion, ConnectedRegions)</l>
+<l>    count_obj (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    area_max_darkpart := area_max</l>
+<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Bright, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
+<l>    select_shape (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 'area', 'and', 10, 99999)</l>
+<l>    union1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright)</l>
+<l>    dilation_rectangle1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 1, 2)</l>
+<c>    * </c>
+<c>    * union between the resulted dark and bright part of defect region</c>
+<l>    union2 (FilteredSearchRegion_Dark, FilteredSearchRegion_Bright, DefectRegion_Algorithm_GrayLevelThreshold)</l>
+<c>    * </c>
+<l>endif</l>
+<c>* </c>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Combine the resulted defect regions from both algorithm together</c>
+<l>if (IsPadFounded == 1)</l>
+<c>    * </c>
+<l>    union2 (DefectRegion_Algorithm_EdgeExtraction, DefectRegion_Algorithm_GrayLevelThreshold, DefectRegion_Pinhole)</l>
+<c>    * filtering a small regions as noise</c>
+<l>    connection (DefectRegion_Pinhole, ConnectedRegions)</l>
+<l>    area_center (ConnectedRegions, listArea, r, c)</l>
+<l>    count_obj (ConnectedRegions, n)</l>
+<l>    if (n &gt; 0)</l>
+<l>        tuple_max (listArea, MaxDefectArea)</l>
+<l>    else</l>
+<l>        MaxDefectArea := 0</l>
+<l>    endif</l>
+<l>    MinDefectArea := 0.2*MaxDefectArea</l>
+<l>    select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', MinDefectArea, 10000)</l>
+<l>    union1 (SelectedRegions, FilteredDefectRegion_Pinhole)</l>
+<l>    closing_circle (FilteredDefectRegion_Pinhole, FilteredDefectRegion_Pinhole, 5)</l>
+<c>    * </c>
+<l>endif</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure : Display the result</c>
+<l>* message := 'Show the resulted defect region (pinhole)\n' + 'Yellow  = using edge extraction\n' + 'Green   = using gray-level thresholding'</l>
+<l>* dev_clear_window ()</l>
+<l>* dev_display (InputImage)</l>
+<l>* set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>* disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
+<l>* dev_set_draw ('margin')</l>
+<l>* dev_set_color ('yellow')</l>
+<l>* dev_display (DefectRegion_Algorithm_EdgeExtraction)</l>
+<l>* dev_set_color ('green')</l>
+<l>* dev_display (DefectRegion_Algorithm_GrayLevelThreshold)</l>
+<l>* stop ()</l>
+<c>* </c>
+<l>* message := 'Show the resulted pinhole defect region (final)'</l>
+<l>* dev_clear_window ()</l>
+<l>* dev_display (InputImage)</l>
+<l>* set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>* disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
+<l>* dev_set_draw ('margin')</l>
+<l>* dev_set_color ('yellow')</l>
+<l>* dev_display (FilteredDefectRegion_Pinhole)</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<l>if (IsPadFounded == 1)</l>
+<l>    DefectRegion := FilteredDefectRegion_Pinhole</l>
+<l>else</l>
+<l>    gen_empty_region (emptyRegion)</l>
+<l>    DefectRegion := emptyRegion</l>
+<l>endif</l>
+<c>* </c>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="ovst_find_pinhole_region_nattapong">
+<parameters>
+<parameter id="DefectRegion"/>
+<parameter id="InputImage"/>
+<parameter id="RefImage"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="ovst_find_pinhole_region_by_nattapong">
+<interface>
+<io>
+<par name="InputImage" base_type="iconic" dimension="0"/>
+<par name="RefImage" base_type="iconic" dimension="0"/>
+</io>
+<oo>
+<par name="DefectRegion" base_type="iconic" dimension="0"/>
+</oo>
+</interface>
+<body>
+<c>* </c>
+<l>* dev_close_window ()</l>
+<l>* dev_open_window (0, 0, 512, 512, 'black', WindowHandle)</l>
+<l>* dev_update_on ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Locate the main "Bonding pad"</c>
+<c>* ** Description : To extract the region of main Bonding pad before searching the defect on that region later</c>
+<c>* </c>
+<c>* Smooth reference image &amp; gray opening algorithm</c>
+<l>smooth_image (RefImage, RefImage_Smooth, 'deriche2', 0.8)</l>
+<l>gray_opening_shape (RefImage_Smooth, RefImage_OpeningShape, 13, 13, 'octagon')</l>
+<c>* </c>
+<c>* Edge extraction</c>
+<l>sobel_amp (RefImage_OpeningShape, EdgeAmplitude_OpeningShape, 'thin_max_abs', 9)</l>
+<l>emphasize (EdgeAmplitude_OpeningShape, EdgeAmplitude_OpeningShape, 9, 9, 1.0)</l>
+<l>threshold (EdgeAmplitude_OpeningShape, EdgesRegion_OpeningShape, 35, 255)</l>
+<l>close_edges (EdgesRegion_OpeningShape, EdgeAmplitude_OpeningShape, EdgesExtendedRegion_OpeningShape, 10)</l>
+<l>dilation_circle (EdgesExtendedRegion_OpeningShape, EdgesExtendedRegion_OpeningShape, 3.5)</l>
+<c>* </c>
+<c>* Try to fill up the edge image, Edge of bonding pad will be filled up in this process</c>
+<l>fill_up (EdgesExtendedRegion_OpeningShape, RegionFillUp)</l>
+<c>* </c>
+<c>* Search for the region with maximum area as the bonding pad region of reference image</c>
+<l>connection (RegionFillUp, ConnectedRegions)</l>
+<l>count_obj (ConnectedRegions, obj_count)</l>
+<l>area_max := 0</l>
+<l>for i := 1 to obj_count by 1</l>
+<l>    select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>    area_center (SelectedObj, area, r, c)</l>
+<l>    if (area &gt; area_max)</l>
+<l>        area_max := area</l>
+<l>    endif</l>
+<l>endfor</l>
+<l>select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 0.5*area_max, 99999)</l>
+<l>union1 (SelectedRegions, RegionUnion)</l>
+<l>closing_circle (RegionUnion, RegionClosing, 80)</l>
+<l>gen_empty_region (BondingPadRegion_RefImage)</l>
+<l>BondingPadRegion_RefImage := RegionClosing</l>
+<c>* </c>
+<l>dilation_circle (BondingPadRegion_RefImage, DilationBondingPadRegion_RefImage, 2)</l>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Generate shape model for bonding pad detection using reference image</c>
+<c>* </c>
+<l>reduce_domain (RefImage, DilationBondingPadRegion_RefImage, DilationBondingPadImage_RefImage)</l>
+<l>mean_image (DilationBondingPadImage_RefImage, ImageMean, 5, 5)</l>
+<l>create_shape_model (ImageMean, 'auto', -0.39, 0.79, 'auto', 'auto', 'use_polarity', 'auto', 'auto', ModelID)</l>
+<l>get_shape_model_contours (ModelContours_Pinhole, ModelID, 1)</l>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Search for bonding pad's area in defect image</c>
+<c>* </c>
+<c>* find the bonding pad region in defect image using model matching</c>
+<l>NumberOfDetectedObj := -1</l>
+<l>MinScore := 0.5</l>
+<l>while ((NumberOfDetectedObj &lt; 1) and (MinScore &gt; 0.1))</l>
+<l>    find_shape_model (InputImage, ModelID, 0, 1.57, MinScore, 0, 0.5, 'least_squares_high', 0, 0, Row_ModelMatching, Column_ModelMatching, Angle_ModelMatching, Score)</l>
+<l>    MinScore := MinScore - 0.05</l>
+<l>    NumberOfDetectedObj := |Score|</l>
+<l>endwhile</l>
+<c>* </c>
+<c>* If detected object is founded more than one object. Then, select the best object which has the highest score</c>
+<l>if (NumberOfDetectedObj &gt; 1)</l>
+<l>    bestScore_index := 0</l>
+<l>    bestScore := 0</l>
+<l>    r_bestScore := 0</l>
+<l>    c_bestScore := 0</l>
+<l>    for i := 0 to NumberOfDetectedObj - 1 by 1</l>
+<l>        if (Score[i] &gt; bestScore)</l>
+<l>            bestScore_index := i</l>
+<l>            bestScore := Score[i]</l>
+<l>            r_bestScore := Row_ModelMatching[i]</l>
+<l>            c_bestScore := Column_ModelMatching[i]</l>
+<l>            angle_bestScore := Angle_ModelMatching[i]</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>else</l>
+<l>    bestScore := Score</l>
+<l>    r_bestScore := Row_ModelMatching</l>
+<l>    c_bestScore := Column_ModelMatching</l>
+<l>    angle_bestScore := Angle_ModelMatching</l>
+<l>endif</l>
+<c>* </c>
+<c>* If bonding pad is not founded. Maybe this is not the bonding pad area. Then, do nothing and return the empty region.</c>
+<l>if (|bestScore| == 0)</l>
+<l>    IsPadFounded := 0</l>
+<c>    * Do nothing</c>
+<l>else</l>
+<l>    IsPadFounded := 1</l>
+<l>    vector_angle_to_rigid (0, 0, 0, r_bestScore, c_bestScore, angle_bestScore, HomMat2D)</l>
+<l>    affine_trans_contour_xld (ModelContours_Pinhole, ContoursAffineTrans, HomMat2D)</l>
+<l>    gen_region_contour_xld (ContoursAffineTrans, ModelRegion, 'filled')</l>
+<l>    union1 (ModelRegion, RegionUnion)</l>
+<l>    fill_up (RegionUnion, RegionFillUp)</l>
+<c>    * </c>
+<c>    * Search for the region with maximum area as the bonding pad region of defect image</c>
+<l>    connection (RegionFillUp, ConnectedRegions)</l>
+<l>    count_obj (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', 0.5*area_max, 99999)</l>
+<l>    union1 (SelectedRegions, RegionUnion)</l>
+<l>    closing_circle (RegionUnion, RegionClosing, 80)</l>
+<l>    gen_empty_region (BondingPadRegion_InputImage)</l>
+<l>    BondingPadRegion_InputImage := RegionClosing</l>
+<l>endif</l>
+<c>* </c>
+<l>* dev_display (InputImage)</l>
+<l>* dev_set_draw ('margin')</l>
+<l>* dev_display (BondingPadRegion_InputImage)</l>
+<l>* stop ()</l>
+<l>* dev_display (RefImage)</l>
+<l>* dev_set_draw ('margin')</l>
+<l>* dev_display (BondingPadRegion_RefImage)</l>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Extract defect region within a bonding pad region.</c>
+<c>* **               1st Algorithm =&gt; Using edge extraction</c>
+<l>if (IsPadFounded == 1)</l>
+<c>    * </c>
+<l>    smooth_image (InputImage, InputImage_Smooth, 'deriche2', 0.8)</l>
+<l>    dilation_circle (BondingPadRegion_InputImage, RegionDilation, 5)</l>
+<l>    reduce_domain (InputImage_Smooth, RegionDilation, BondingPadImage_InputImage)</l>
+<l>    sobel_amp (BondingPadImage_InputImage, EdgeAmplitude_Pad1, 'thin_max_abs', 7)</l>
+<l>    sobel_amp (BondingPadImage_InputImage, EdgeAmplitude_Pad2, 'sum_abs', 9)</l>
+<l>    EdgeAmplitude_BondingPad := EdgeAmplitude_Pad1</l>
+<l>    threshold (EdgeAmplitude_BondingPad, EdgeRegion_BondingPad, 24, 255)</l>
+<l>    close_edges (EdgeRegion_BondingPad, EdgeAmplitude_BondingPad, EdgesExtendedRegion_BondingPad, 18)</l>
+<c>    * </c>
+<c>    * Create pinhole's frame region to remove bonding pad's edge from edge image</c>
+<l>    OuterRegion := BondingPadRegion_InputImage</l>
+<l>    erosion_rectangle1 (OuterRegion, InnerRegion, 8, 8)</l>
+<l>    difference (OuterRegion, InnerRegion, FrameBondingPad_InputImage)</l>
+<c>    * </c>
+<l>    union2 (FrameBondingPad_InputImage, EdgesExtendedRegion_BondingPad, RegionUnion1)</l>
+<l>    area_center (BondingPadRegion_InputImage, BondingPadArea_InputImage, r, c)</l>
+<l>    fill_up_shape (RegionUnion1, RegionFillUp1, 'area', 1, 0.2*BondingPadArea_InputImage)</l>
+<c>    * </c>
+<c>    * Select difference region only the inside as defect region</c>
+<l>    difference (RegionFillUp1, FrameBondingPad_InputImage, RegionDiff)</l>
+<l>    erosion_rectangle1 (InnerRegion, tmp, 3, 3)</l>
+<l>    intersection (tmp, RegionDiff, DefectRegion)</l>
+<c>    * </c>
+<c>    * Filter a small region in defect region as "noise" by using area</c>
+<l>    erosion_rectangle1 (DefectRegion, ErosedDefectRegion, 2, 3)</l>
+<l>    connection (ErosedDefectRegion, ConnectedRegions)</l>
+<l>    count_obj (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    * </c>
+<l>    SmallAreaRatio := 0.1</l>
+<l>    NoiseAreaThreshold := 20</l>
+<l>    RoundnessThreshold := 0.55</l>
+<l>    select_shape (ConnectedRegions, FilteredDefectRegion, 'area', 'and', SmallAreaRatio*area_max, 99999)</l>
+<l>    select_shape (FilteredDefectRegion, FilteredDefectRegion, 'area', 'and', NoiseAreaThreshold, 99999)</l>
+<l>    select_shape (FilteredDefectRegion, FilteredDefectRegion, 'roundness', 'and', RoundnessThreshold, 1)</l>
+<l>    union1 (FilteredDefectRegion, FilteredDefectRegion)</l>
+<l>    dilation_rectangle1 (FilteredDefectRegion, FilteredDefectRegion, 1, 2)</l>
+<l>    DefectRegion_Algorithm_EdgeExtraction := FilteredDefectRegion</l>
+<c>    * </c>
+<l>*     dev_display (InputImage)</l>
+<l>*     dev_set_draw ('margin')</l>
+<l>*     dev_display (DefectRegion_Algorithm_EdgeExtraction)</l>
+<c>    * </c>
+<l>endif</l>
+<c>* </c>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Extract defect region within a bonding pad region.</c>
+<c>* **               2nd Algorithm =&gt; Using gray-level thresholding method to find the defect</c>
+<l>if (IsPadFounded == 1)</l>
+<c>    * </c>
+<c>    * Find the background level of bonding pad region using histogram value</c>
+<l>*     smooth_image (InputImage, InputImage_Smooth, 'deriche2', 0.5)</l>
+<l>*     reduce_domain (InputImage_Smooth, BondingPadRegion_InputImage, ImageReduced)</l>
+<l>*     gray_histo (BondingPadRegion_InputImage, InputImage_Smooth, AbsoluteHisto, RelativeHisto)</l>
+<c>    * </c>
+<l>    smooth_image (RefImage, RefImage_Smooth, 'deriche2', 0.5)</l>
+<l>    reduce_domain (RefImage_Smooth, BondingPadRegion_RefImage, ImageReduced)</l>
+<l>    gray_histo (BondingPadRegion_RefImage, RefImage_Smooth, AbsoluteHisto, RelativeHisto)</l>
+<c>    * </c>
+<c>    * background gray-value should be the gray-value of pixel which has the most histogram number</c>
+<l>    backgroundGrayLevel := 1</l>
+<l>    MaxHisto := 0</l>
+<l>    for i := 1 to 255 by 1</l>
+<l>        if (AbsoluteHisto[i] &gt; MaxHisto)</l>
+<l>            MaxHisto := AbsoluteHisto[i]</l>
+<l>            backgroundGrayLevel := i</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    * </c>
+<c>    * Thresholding to extract the dark-part (grey-level) defect</c>
+<l>    reduce_domain (InputImage, RegionDilation, BondingPadImage_InputImage)</l>
+<l>    DarkThreshold1 := backgroundGrayLevel - 38</l>
+<l>    DarkThreshold2 := backgroundGrayLevel - 35</l>
+<l>    if (DarkThreshold1 &gt; 255)</l>
+<l>        DarkThreshold1 := 255</l>
+<l>    endif</l>
+<l>    if (DarkThreshold1 &lt; 1)</l>
+<l>        DarkThreshold1 := 1</l>
+<l>    endif</l>
+<l>    if (DarkThreshold2 &gt; 255)</l>
+<l>        DarkThreshold2 := 255</l>
+<l>    endif</l>
+<l>    if (DarkThreshold2 &lt; 1)</l>
+<l>        DarkThreshold2 := 1</l>
+<l>    endif</l>
+<l>    if (DarkThreshold2 == DarkThreshold1)</l>
+<l>        DarkThreshold2 := DarkThreshold1 + 2</l>
+<l>    endif</l>
+<l>    hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, DarkThreshold1, DarkThreshold2, 10)</l>
+<l>    closing_circle (ThresholdRegion, RegionClosing, 400)</l>
+<l>    tmpPadRegion := BondingPadRegion_InputImage</l>
+<l>    erosion_rectangle1 (tmpPadRegion, tmpPadRegion, 13, 13)</l>
+<l>    union2 (RegionClosing, tmpPadRegion, RegionClosing)</l>
+<l>    closing_circle (RegionClosing, RegionClosing, 400)</l>
+<l>    difference (RegionClosing, ThresholdRegion, SearchRegion_Dark)</l>
+<c>    * </c>
+<c>    * Filtering small area in dark part</c>
+<l>    erosion_rectangle1 (SearchRegion_Dark, RegionErosion, 1, 2)</l>
+<l>    connection (RegionErosion, ConnectedRegions)</l>
+<l>    count_obj (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    area_max_darkpart := area_max</l>
+<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Dark, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
+<l>    select_shape (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 'area', 'and', 10, 99999)</l>
+<l>    union1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark)</l>
+<l>    dilation_rectangle1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 1, 2)</l>
+<c>    * </c>
+<l>*     dev_display (InputImage)</l>
+<l>*     dev_set_draw ('fill')</l>
+<l>*     dev_set_color ('yellow')</l>
+<l>*     dev_display (ThresholdRegion)</l>
+<l>*     dev_set_draw ('margin')</l>
+<l>*     dev_set_color ('green')</l>
+<l>*     dev_display (RegionClosing)</l>
+<l>*     dev_set_color ('red')</l>
+<l>*     dev_display (InnerRegion)</l>
+<c>    * </c>
+<c>    * Thresholding to extract the bright-part (grey-level) defect</c>
+<l>    BrightThreshold1 := backgroundGrayLevel + 28</l>
+<l>    BrightThreshold2 := backgroundGrayLevel + 31</l>
+<l>    if (BrightThreshold1 &gt; 255)</l>
+<l>        BrightThreshold1 := 255</l>
+<l>    endif</l>
+<l>    if (BrightThreshold1 &lt; 1)</l>
+<l>        BrightThreshold1 := 1</l>
+<l>    endif</l>
+<l>    if (BrightThreshold2 &gt; 255)</l>
+<l>        BrightThreshold2 := 255</l>
+<l>    endif</l>
+<l>    if (BrightThreshold2 &lt; 1)</l>
+<l>        BrightThreshold2 := 1</l>
+<l>    endif</l>
+<l>    if (BrightThreshold2 == BrightThreshold1)</l>
+<l>        BrightThreshold2 := BrightThreshold1 + 2</l>
+<l>    endif</l>
+<l>    hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, BrightThreshold1, BrightThreshold2, 10)</l>
+<l>    SearchRegion_Bright := ThresholdRegion</l>
+<c>    * </c>
+<c>    * Filtering small area in bright part</c>
+<l>    erosion_rectangle1 (SearchRegion_Bright, RegionErosion, 1, 2)</l>
+<l>    connection (RegionErosion, ConnectedRegions)</l>
+<l>    count_obj (ConnectedRegions, obj_count)</l>
+<l>    area_max := 0</l>
+<l>    for i := 1 to obj_count by 1</l>
+<l>        select_obj (ConnectedRegions, SelectedObj, i)</l>
+<l>        area_center (SelectedObj, area, r, c)</l>
+<l>        if (area &gt; area_max)</l>
+<l>            area_max := area</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>    area_max_darkpart := area_max</l>
+<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Bright, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
+<l>    select_shape (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 'area', 'and', 10, 99999)</l>
+<l>    union1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright)</l>
+<l>    dilation_rectangle1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 1, 2)</l>
+<c>    * </c>
+<c>    * union between the resulted dark and bright part of defect region</c>
+<l>    union2 (FilteredSearchRegion_Dark, FilteredSearchRegion_Bright, DefectRegion_Algorithm_GrayLevelThreshold)</l>
+<c>    * </c>
+<l>endif</l>
+<c>* </c>
+<l>* stop ()</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure   : Combine the resulted defect regions from both algorithm together</c>
+<l>if (IsPadFounded == 1)</l>
+<c>    * </c>
+<l>    union2 (DefectRegion_Algorithm_EdgeExtraction, DefectRegion_Algorithm_GrayLevelThreshold, DefectRegion_Pinhole)</l>
+<c>    * filtering a small regions as noise</c>
+<l>    connection (DefectRegion_Pinhole, ConnectedRegions)</l>
+<l>    area_center (ConnectedRegions, listArea, r, c)</l>
+<l>    count_obj (ConnectedRegions, n)</l>
+<l>    if (n &gt; 0)</l>
+<l>        tuple_max (listArea, MaxDefectArea)</l>
+<l>    else</l>
+<l>        MaxDefectArea := 0</l>
+<l>    endif</l>
+<l>    MinDefectArea := 0.2*MaxDefectArea</l>
+<l>    select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', MinDefectArea, 10000)</l>
+<l>    union1 (SelectedRegions, FilteredDefectRegion_Pinhole)</l>
+<l>    closing_circle (FilteredDefectRegion_Pinhole, FilteredDefectRegion_Pinhole, 5)</l>
+<c>    * </c>
+<l>endif</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* </c>
+<c>* ** Procedure : Display the result</c>
+<l>* message := 'Show the resulted defect region (pinhole)\n' + 'Yellow  = using edge extraction\n' + 'Green   = using gray-level thresholding'</l>
+<l>* dev_clear_window ()</l>
+<l>* dev_display (InputImage)</l>
+<l>* set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>* disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
+<l>* dev_set_draw ('margin')</l>
+<l>* dev_set_color ('yellow')</l>
+<l>* dev_display (DefectRegion_Algorithm_EdgeExtraction)</l>
+<l>* dev_set_color ('green')</l>
+<l>* dev_display (DefectRegion_Algorithm_GrayLevelThreshold)</l>
+<l>* stop ()</l>
+<c>* </c>
+<l>* message := 'Show the resulted pinhole defect region (final)'</l>
+<l>* dev_clear_window ()</l>
+<l>* dev_display (InputImage)</l>
+<l>* set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>* disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
+<l>* dev_set_draw ('margin')</l>
+<l>* dev_set_color ('yellow')</l>
+<l>* dev_display (FilteredDefectRegion_Pinhole)</l>
+<c>* </c>
+<c>* *******************************************************************************</c>
+<c>* </c>
+<l>if (IsPadFounded == 1)</l>
+<l>    DefectRegion := FilteredDefectRegion_Pinhole</l>
+<l>else</l>
+<l>    gen_empty_region (emptyRegion)</l>
+<l>    DefectRegion := emptyRegion</l>
+<l>endif</l>
+<c>* </c>
+<c>* </c>
+</body>
+<docu id="ovst_find_pinhole_region_by_nattapong">
+<parameters>
+<parameter id="DefectRegion"/>
+<parameter id="InputImage"/>
+<parameter id="RefImage"/>
+</parameters>
+</docu>
+</procedure>
+</hdevelop>

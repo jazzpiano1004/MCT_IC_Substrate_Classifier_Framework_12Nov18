@@ -1,21 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<hdevelop file_version="1.1" halcon_version="12.0.3">
+<hdevelop file_version="1.2" halcon_version="12.0.3.3">
 <procedure name="main">
 <interface/>
 <body>
 <c></c>
-<l>ImageFolderPath := 'E:/My_Workspaces/Engineering_Workspace/IC_Substrate_Image'</l>
+<l>ImageFolderPath := 'E:/My_Workspaces/Engineering_Workspace/IC_Substrate_Image/Filtered_Image_By_Nattapong/For_Pinhole'</l>
 <c></c>
 <c>* The folders that contain the true particlce circuit defect images.</c>
 <l>TrueImageFolders := []</l>
-<l>TrueImageFolders[0] := ImageFolderPath + '/Pinhole/TrueDefects_12SEP18/True/Reverse Metal'</l>
+<l>TrueImageFolders[0] := ImageFolderPath + '/True/Pinhole/TrueDefects_12SEP18/True/Reverse Metal'</l>
 <c></c>
 <c>* The folders that contain the false particlce circuit defect images.</c>
 <l>FalseImageFolders := []</l>
-<l>FalseImageFolders[0] := ImageFolderPath + '/Particles/True Defects (Not removable)_06SEP18/True Defects (Not removable)/Circuit Metal'</l>
+<l>FalseImageFolders[0] := ImageFolderPath + '/False/FM/TrueDefects_08SEP18/True/Reverse Metal'</l>
+<l>FalseImageFolders[1] := ImageFolderPath + '/False/Particles/True Defects (Not removable)_06SEP18/Reverse Metal'</l>
+<l>FalseImageFolders[2] := ImageFolderPath + '/False/Pinhole/True/Reverse Metal'</l>
 <c></c>
 <l>ovst_mct_layout (TrueImageFolders, TrueCropFiles, TruehObjFiles, TrueRefFiles)</l>
 <l>ovst_mct_layout (FalseImageFolders, FalseCropFiles, FalsehObjFiles, FalseRefFiles)</l>
+<c></c>
+<l>global tuple logFileHeaderPrintFlag</l>
+<l>logFileHeaderPrintFlag := 0</l>
 <c></c>
 <c>* loop through true images</c>
 <l>ovst_loop_through_images (TrueCropFiles, TruehObjFiles, TrueRefFiles, 0)</l>
@@ -579,6 +584,7 @@
 </ic>
 </interface>
 <body>
+<l>global tuple logFileHeaderPrintFlag</l>
 <l>counter := 0</l>
 <c></c>
 <l>dev_close_window ()</l>
@@ -593,11 +599,21 @@
 <l>    file_exists (RefFiles[k], RefImageFileExists)                                               </l>
 <l>    if(RefImageFileExists==1)</l>
 <l>        read_image (RefImage, RefFiles[k])</l>
+<c>        </c>
+<c>        * Use nattapong's algorithm if reference image is available</c>
 <l>        ovst_find_pinhole_region_by_nattapong (DefectImage, RefImage, hObj)</l>
+<l>        ovst_find_pinhole_region2 (DefectImage, hObj_Ronnie)</l>
 <c>       </c>
 <l>    else</l>
+<c>        </c>
+<c>        * Use Ronnie's algorithm if reference image is not available</c>
 <l>        ovst_find_pinhole_region2 (DefectImage, hObj)</l>
+<l>        ovst_find_pinhole_region2 (DefectImage, hObj_Ronnie)</l>
+<c></c>
 <l>    endif</l>
+<c>    </c>
+<l>    dev_display(DefectImage)</l>
+<l>*     stop()</l>
 <c>    </c>
 <l>    dev_clear_window()</l>
 <l>    dev_display(DefectImage)</l>
@@ -606,8 +622,10 @@
 <l>    dev_display(OriginalhObj)</l>
 <l>    dev_set_color('yellow')</l>
 <l>    dev_display(hObj)</l>
+<l>    dev_set_color('green')</l>
+<l>    dev_display(hObj_Ronnie)</l>
 <c>    </c>
-<l>    message := 'Yellow : Pinhole defect region by OVST' + '\nRed :    Pinhole defect region by MCT'</l>
+<l>    message := 'Yellow : Pinhole defect region by OVST (Nattapong)\n' + 'Green  : Pinhole defect region by OVST (Ronnie)' + '\nRed :    Pinhole defect region by MCT'</l>
 <l>    set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
 <l>    disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
 <c>    </c>
@@ -615,13 +633,15 @@
 <l>    tuple_split (ImageFiles[k],'\\',substrings)</l>
 <l>    tuple_split (substrings,'.',filename)</l>
 <c>    </c>
-<l>    set_tposition (WindowHandle, 25, 5)</l>
+<l>    set_tposition (WindowHandle, 32, 5)</l>
 <c>    </c>
 <l>    if (Class == 0)</l>
 <l>        dev_set_color('green')</l>
+<l>        classType := 'TRUE'</l>
 <l>        name := 'TRUE ' + filename[|filename|-2]     </l>
 <l>    else</l>
 <l>        dev_set_color('red')</l>
+<l>        classType := 'FALSE'</l>
 <l>        name := 'FALSE ' + filename[|filename|-2]          </l>
 <l>    endif</l>
 <c>    </c>
@@ -632,9 +652,70 @@
 <l>    dev_set_color('cyan')</l>
 <l>    write_string (WindowHandle, 'Counter ' + counter)</l>
 <c>    </c>
-<l>    disp_text_button(WindowHandle, 'Press F5 to Continue', 'window', 950, 550, 'black', 'gray')</l>
+<l>    disp_text_button(WindowHandle, 'Press F5 to Continue', 'window', 950/2, 550/2, 'black', 'gray')</l>
 <c>    </c>
-<l>    stop()</l>
+<c>    *** Feature analysis ***</c>
+<l>    Region := hObj</l>
+<l>    area_center (Region, AreaCenter, Row, Column)</l>
+<l>    area_holes  (Region, AreaHole)</l>
+<l>    circularity (Region, Circularity)</l>
+<l>    intensity   (Region, DefectImage, Intensity_Mean, Intensity_Deviation)</l>
+<l>    moments_region_2nd (Region, M11, M20, M02, Ia, Ib)</l>
+<l>*     compactness (Region, Compactness)</l>
+<l>*     entropy_gray (Region, DefectImage, Entropy, Anisotropy)</l>
+<l>    cooc_feature_image (Region, DefectImage, 8, 'mean', Energy, Correlation, Homogeneity, Contrast)</l>
+<l>*     eccentricity (Region, Anisometry, Bulkiness, StructureFactor)</l>
+<l>*     min_max_gray (Region, DefectImage, 0, Min, Max, Range)</l>
+<c></c>
+<l>    Features := []</l>
+<l>    Features[0] := AreaCenter</l>
+<l>    Features[1] := AreaHole</l>
+<l>    Features[2] := Circularity</l>
+<l>    Features[3] := Intensity_Mean</l>
+<l>    Features[4] := Intensity_Deviation</l>
+<l>    Features[5] := M11</l>
+<l>    Features[6] := M20</l>
+<l>    Features[7] := M02</l>
+<l>    Features[8] := Ia</l>
+<l>    Features[9] := Ib</l>
+<l>    Features[10] := Energy</l>
+<l>    Features[11] := Correlation</l>
+<l>    Features[12] := Homogeneity</l>
+<l>    Features[13] := Contrast</l>
+<c>    </c>
+<l>    FeaturesName[0] := 'AreaCenter'</l>
+<l>    FeaturesName[1] := 'AreaHole'</l>
+<l>    FeaturesName[2] := 'Circularity'</l>
+<l>    FeaturesName[3] := 'Intensity_Mean'</l>
+<l>    FeaturesName[4] := 'Intensity_Deviation'</l>
+<l>    FeaturesName[5] := 'moment (M11)'</l>
+<l>    FeaturesName[6] := 'moment (M20)'</l>
+<l>    FeaturesName[7] := 'moment (M02)'</l>
+<l>    FeaturesName[8] := 'Ia'</l>
+<l>    FeaturesName[9] := 'Ib'</l>
+<l>    FeaturesName[10] := 'Energy'</l>
+<l>    FeaturesName[11] := 'Correlation'</l>
+<l>    FeaturesName[12] := 'Homogeneity'</l>
+<l>    FeaturesName[13] := 'Contrast'</l>
+<c></c>
+<l>    open_file('log_feature_analysis.csv', 'append', FileHandle)</l>
+<c>    * Write header texts in the log table</c>
+<l>    if (logFileHeaderPrintFlag == 0)</l>
+<l>        for n := 1 to |Features| by 1</l>
+<l>            fwrite_string(FileHandle, [FeaturesName[n-1], ','])</l>
+<l>        endfor</l>
+<l>        fwrite_string(FileHandle, ['Class', ',', 'Name'])</l>
+<l>        fnew_line(FileHandle)</l>
+<l>        logFileHeaderPrintFlag := 1</l>
+<l>    endif</l>
+<l>    for n := 1 to |Features| by 1</l>
+<l>        fwrite_string(FileHandle, [Features[n-1], ','])</l>
+<l>    endfor</l>
+<l>    fwrite_string(FileHandle, [classType, ',', filename[|filename|-2]])</l>
+<l>    fnew_line(FileHandle)</l>
+<l>    close_file(FileHandle)</l>
+<c>    </c>
+<l>*     stop()</l>
 <c>    </c>
 <l>endfor</l>
 <c></c>
@@ -1078,7 +1159,7 @@
 <l>gen_empty_region (BondingPadRegion_RefImage)</l>
 <l>BondingPadRegion_RefImage := RegionClosing</l>
 <c></c>
-<l>dilation_circle (BondingPadRegion_RefImage, DilationBondingPadRegion_RefImage, 2)</l>
+<l>dilation_circle (BondingPadRegion_RefImage, DilationBondingPadRegion_RefImage, 2.5)</l>
 <l>* stop()</l>
 <c></c>
 <c>********************************************************************************</c>
@@ -1102,9 +1183,9 @@
 <c>* find the bonding pad region in defect image using model matching</c>
 <l>NumberOfDetectedObj := -1</l>
 <l>MinScore := 0.5</l>
-<l>while ((NumberOfDetectedObj &lt; 1) and (MinScore &gt; 0.01))</l>
+<l>while ((NumberOfDetectedObj &lt; 1) and (MinScore &gt; 0.1))</l>
 <l>    find_shape_model (InputImage, ModelID, 0, 1.57, MinScore, 0, 0.5, 'least_squares_high', 0, 0, Row_ModelMatching, Column_ModelMatching, Angle_ModelMatching, Score)</l>
-<l>    MinScore := MinScore - 0.24</l>
+<l>    MinScore := MinScore - 0.05</l>
 <l>    NumberOfDetectedObj := |Score|</l>
 <l>endwhile</l>
 <c></c>
@@ -1162,11 +1243,11 @@
 <c></c>
 <l>* dev_display(InputImage)</l>
 <l>* dev_set_draw('margin')</l>
-<l>* dev_display(PinholeRegion_InputImage)</l>
+<l>* dev_display(BondingPadRegion_InputImage)</l>
 <l>* stop()</l>
 <l>* dev_display(RefImage)</l>
 <l>* dev_set_draw('margin')</l>
-<l>* dev_display(PinholeRegion_RefImage)</l>
+<l>* dev_display(BondingPadRegion_RefImage)</l>
 <l>* stop()</l>
 <c></c>
 <c>********************************************************************************</c>
@@ -1202,7 +1283,7 @@
 <l>    intersection (tmp, RegionDiff, DefectRegion)</l>
 <c>    </c>
 <c>    * Filter a small region in defect region as "noise" by using area</c>
-<l>    erosion_rectangle1 (DefectRegion, ErosedDefectRegion, 1, 2)</l>
+<l>    erosion_rectangle1 (DefectRegion, ErosedDefectRegion, 2, 3)</l>
 <l>    connection (ErosedDefectRegion, ConnectedRegions)</l>
 <l>    count_obj  (ConnectedRegions, obj_count)</l>
 <l>    area_max := 0</l>
@@ -1224,9 +1305,9 @@
 <l>    dilation_rectangle1 (FilteredDefectRegion, FilteredDefectRegion, 1, 2)</l>
 <l>    DefectRegion_Algorithm_EdgeExtraction := FilteredDefectRegion</l>
 <c>    </c>
-<l>    dev_display(InputImage)</l>
-<l>    dev_set_draw('margin')</l>
-<l>    dev_display(DefectRegion_Algorithm_EdgeExtraction) </l>
+<l>*     dev_display(InputImage)</l>
+<l>*     dev_set_draw('margin')</l>
+<l>*     dev_display(DefectRegion_Algorithm_EdgeExtraction) </l>
 <c>    </c>
 <l>endif</l>
 <c></c>
@@ -1242,9 +1323,13 @@
 <l>if (IsPadFounded == 1)</l>
 <c>    </c>
 <c>    * Find the background level of bonding pad region using histogram value</c>
-<l>    smooth_image (InputImage, InputImage_Smooth, 'deriche2', 0.5)</l>
-<l>    reduce_domain (InputImage_Smooth, BondingPadRegion_InputImage, ImageReduced)</l>
-<l>    gray_histo (BondingPadRegion_InputImage, InputImage_Smooth, AbsoluteHisto, RelativeHisto)</l>
+<l>*     smooth_image (InputImage, InputImage_Smooth, 'deriche2', 0.5)</l>
+<l>*     reduce_domain (InputImage_Smooth, BondingPadRegion_InputImage, ImageReduced)</l>
+<l>*     gray_histo (BondingPadRegion_InputImage, InputImage_Smooth, AbsoluteHisto, RelativeHisto)</l>
+<c>    </c>
+<l>    smooth_image (RefImage, RefImage_Smooth, 'deriche2', 0.5)</l>
+<l>    reduce_domain (RefImage_Smooth, BondingPadRegion_RefImage, ImageReduced)</l>
+<l>    gray_histo (BondingPadRegion_RefImage, RefImage_Smooth, AbsoluteHisto, RelativeHisto)</l>
 <c>    </c>
 <c>    * background gray-value should be the gray-value of pixel which has the most histogram number </c>
 <l>    backgroundGrayLevel := 1</l>
@@ -1258,8 +1343,8 @@
 <c>    </c>
 <c>    * Thresholding to extract the dark-part (grey-level) defect</c>
 <l>    reduce_domain (InputImage, RegionDilation, BondingPadImage_InputImage)</l>
-<l>    DarkThreshold1 := backgroundGrayLevel - 48</l>
-<l>    DarkThreshold2 := backgroundGrayLevel - 45</l>
+<l>    DarkThreshold1 := backgroundGrayLevel - 38</l>
+<l>    DarkThreshold2 := backgroundGrayLevel - 35</l>
 <l>    if(DarkThreshold1 &gt; 255)</l>
 <l>        DarkThreshold1 := 255</l>
 <l>    endif</l>
@@ -1276,7 +1361,11 @@
 <l>        DarkThreshold2 := DarkThreshold1 + 2</l>
 <l>    endif</l>
 <l>    hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, DarkThreshold1, DarkThreshold2, 10)</l>
-<l>    closing_circle (ThresholdRegion, RegionClosing, 100)</l>
+<l>    closing_circle (ThresholdRegion, RegionClosing, 400)</l>
+<l>    tmpPadRegion := BondingPadRegion_InputImage</l>
+<l>    erosion_rectangle1 (tmpPadRegion, tmpPadRegion, 13, 13)</l>
+<l>    union2 (RegionClosing, tmpPadRegion, RegionClosing)</l>
+<l>    closing_circle (RegionClosing, RegionClosing, 400)</l>
 <l>    difference (RegionClosing, ThresholdRegion, SearchRegion_Dark)</l>
 <c>    </c>
 <c>    * Filtering small area in dark part</c>
@@ -1292,14 +1381,24 @@
 <l>        endif</l>
 <l>    endfor</l>
 <l>    area_max_darkpart := area_max</l>
-<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Dark, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
+<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Dark, 'area', 'and', 0.2*area_max_darkpart, 99999)</l>
 <l>    select_shape (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 'area', 'and', 10, 99999)</l>
 <l>    union1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark)</l>
 <l>    dilation_rectangle1 (FilteredSearchRegion_Dark, FilteredSearchRegion_Dark, 1, 2)</l>
 <c>    </c>
+<l>*     dev_display(InputImage)</l>
+<l>*     dev_set_draw('fill')</l>
+<l>*     dev_set_color('yellow')</l>
+<l>*     dev_display(ThresholdRegion)</l>
+<l>*     dev_set_draw('margin')</l>
+<l>*     dev_set_color('green')</l>
+<l>*     dev_display(RegionClosing)</l>
+<l>*     dev_set_color('red')</l>
+<l>*     dev_display(InnerRegion)  </l>
+<c>    </c>
 <c>    * Thresholding to extract the bright-part (grey-level) defect</c>
-<l>    BrightThreshold1 := backgroundGrayLevel + 30</l>
-<l>    BrightThreshold2 := backgroundGrayLevel + 33</l>
+<l>    BrightThreshold1 := backgroundGrayLevel + 28</l>
+<l>    BrightThreshold2 := backgroundGrayLevel + 30</l>
 <l>    if(BrightThreshold1 &gt; 255)</l>
 <l>        BrightThreshold1 := 255</l>
 <l>    endif</l>
@@ -1318,7 +1417,7 @@
 <l>    hysteresis_threshold (BondingPadImage_InputImage, ThresholdRegion, BrightThreshold1, BrightThreshold2, 10)</l>
 <l>    SearchRegion_Bright := ThresholdRegion</l>
 <c>    </c>
-<c>    * Filtering small area in dark part</c>
+<c>    * Filtering small area in bright part</c>
 <l>    erosion_rectangle1 (SearchRegion_Bright, RegionErosion, 1, 2)</l>
 <l>    connection (RegionErosion, ConnectedRegions)</l>
 <l>    count_obj  (ConnectedRegions, obj_count)</l>
@@ -1331,7 +1430,7 @@
 <l>        endif</l>
 <l>    endfor</l>
 <l>    area_max_darkpart := area_max</l>
-<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Bright, 'area', 'and', 0.1*area_max_darkpart, 99999)</l>
+<l>    select_shape (ConnectedRegions, FilteredSearchRegion_Bright, 'area', 'and', 0.2*area_max_darkpart, 99999)</l>
 <l>    select_shape (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 'area', 'and', 10, 99999)</l>
 <l>    union1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright)</l>
 <l>    dilation_rectangle1 (FilteredSearchRegion_Bright, FilteredSearchRegion_Bright, 1, 2)</l>
@@ -1339,9 +1438,15 @@
 <c>    * union between the resulted dark and bright part of defect region</c>
 <l>    union2 (FilteredSearchRegion_Dark, FilteredSearchRegion_Bright, DefectRegion_Algorithm_GrayLevelThreshold)</l>
 <c>    </c>
-<l>    dev_display(InputImage)</l>
-<l>    dev_set_draw('margin')</l>
-<l>    dev_display(DefectRegion_Algorithm_GrayLevelThreshold)    </l>
+<l>*     dev_display(InputImage)</l>
+<l>*     dev_set_draw('fill')</l>
+<l>*     dev_set_color('yellow')</l>
+<l>*     dev_display(SearchRegion_Bright)</l>
+<l>*     dev_set_draw('margin')</l>
+<l>*     dev_set_color('green')</l>
+<l>*     dev_display(RegionClosing)</l>
+<l>*     dev_set_color('red')</l>
+<l>*     dev_display(InnerRegion)  </l>
 <c>    </c>
 <l>endif</l>
 <c></c>
@@ -1357,6 +1462,7 @@
 <c>    </c>
 <l>    union2 (DefectRegion_Algorithm_EdgeExtraction, DefectRegion_Algorithm_GrayLevelThreshold, DefectRegion_Pinhole)</l>
 <c>    * filtering a small regions as noise</c>
+<l>    erosion_rectangle1 (DefectRegion_Pinhole, DefectRegion_Pinhole, 1, 2)</l>
 <l>    connection   (DefectRegion_Pinhole, ConnectedRegions)</l>
 <l>    area_center (ConnectedRegions, listArea, r, c) </l>
 <l>    count_obj (ConnectedRegions, n)</l>
@@ -1365,9 +1471,11 @@
 <l>    else   </l>
 <l>        MaxDefectArea := 0</l>
 <l>    endif</l>
-<l>    MinDefectArea := 0.1*MaxDefectArea</l>
+<l>    MinDefectArea := 0.25*MaxDefectArea</l>
 <l>    select_shape (ConnectedRegions, SelectedRegions, 'area', 'and', MinDefectArea, 10000)</l>
 <l>    union1(SelectedRegions, FilteredDefectRegion_Pinhole)   </l>
+<l>    closing_circle (FilteredDefectRegion_Pinhole, FilteredDefectRegion_Pinhole, 5)</l>
+<l>    dilation_rectangle1 (FilteredDefectRegion_Pinhole, FilteredDefectRegion_Pinhole, 1, 2)</l>
 <c>    </c>
 <l>endif</l>
 <c></c>
@@ -1377,27 +1485,27 @@
 <c></c>
 <c></c>
 <c>*** Procedure : Display the result</c>
-<l>message := 'Show the resulted defect region (pinhole)\n' + 'Yellow  = using edge extraction\n' + 'Green   = using gray-level thresholding'</l>
-<l>dev_clear_window ()</l>
-<l>dev_display(InputImage)</l>
-<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
-<l>disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
-<l>dev_set_draw('margin')</l>
-<l>dev_set_color('yellow')</l>
-<l>dev_display(DefectRegion_Algorithm_EdgeExtraction)</l>
-<l>dev_set_color('green')</l>
-<l>dev_display(DefectRegion_Algorithm_GrayLevelThreshold)</l>
-<l>stop()</l>
+<l>* message := 'Show the resulted defect region (pinhole)\n' + 'Yellow  = using edge extraction\n' + 'Green   = using gray-level thresholding'</l>
+<l>* dev_clear_window ()</l>
+<l>* dev_display(InputImage)</l>
+<l>* set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>* disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
+<l>* dev_set_draw('margin')</l>
+<l>* dev_set_color('yellow')</l>
+<l>* dev_display(DefectRegion_Algorithm_EdgeExtraction)</l>
+<l>* dev_set_color('green')</l>
+<l>* dev_display(DefectRegion_Algorithm_GrayLevelThreshold)</l>
+<l>*stop()</l>
 <c></c>
-<l>message := 'Show the resulted pinhole defect region (final)'</l>
-<l>dev_clear_window ()</l>
-<l>dev_display(InputImage)</l>
-<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
-<l>disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
-<l>dev_set_draw('margin')</l>
-<l>dev_set_color('yellow')</l>
-<l>dev_display(FilteredDefectRegion_Pinhole)</l>
-<l>* stop()</l>
+<l>* message := 'Show the resulted pinhole defect region (final)'</l>
+<l>* dev_clear_window ()</l>
+<l>* dev_display(InputImage)</l>
+<l>* set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>* disp_message (WindowHandle, message, 'window', 10, 10, 'black', 'true')</l>
+<l>* dev_set_draw('margin')</l>
+<l>* dev_set_color('yellow')</l>
+<l>* dev_display(FilteredDefectRegion_Pinhole)</l>
+<l>*  stop()</l>
 <c>********************************************************************************</c>
 <c></c>
 <l>if (IsPadFounded == 1)</l>
